@@ -9,11 +9,27 @@ pacman::p_load(
 showtext_auto()
 
 # Data ----
-# 问卷调查Q10的内容。
+# 问卷调查Q10的日语内容。
 jp_txt <- read.xlsx("data_raw/HWGM Data (2).xlsx", sheet = "Japanese") %>% 
   tibble() %>% 
-  select(id = "No.", q10 = "Q10") %>% 
-  filter(!is.na(q10))
+  select(id = "No.", ven_reason_jp = "Q10") %>% 
+  mutate(id = as.character(id))
+# 问卷调查Q10态度分数、性别、对狩猎的态度分数等。
+survey <- 
+  read.xlsx(
+    "data_raw/HWGM Data (2).xlsx", sheet = "data (2)", startRow = 2
+  ) %>% 
+  tibble() %>% 
+  rename_with(~ tolower(.x)) %>% 
+  rename(id = "no.", ven = attitude, ven_reason_en = "the.reason") %>% 
+  mutate(
+    id = as.character(id), 
+    ven = as.character(ven), 
+    hunting = as.integer(hunting)
+  ) %>% 
+  # 加入Q10日语回答信息。
+  left_join(jp_txt, by = "id") %>% 
+  filter(!is.na(ven_reason_jp), !is.na(ven))
 
 # 停止词：在分词之后去除的不重要的日语词汇。
 jp_stop_word <- tibble(
@@ -28,7 +44,7 @@ jp_stop_word <- tibble(
 )
 
 # 分词：文本分析的基础，将文档分成一个个单独的词。
-tok <- unnest_tokens(jp_txt, word, q10) %>% 
+tok <- unnest_tokens(survey, word, ven_reason_jp) %>% 
   # 去除停止词。
   anti_join(jp_stop_word, by = "word") %>% 
   count(id, word, sort = TRUE)
@@ -90,8 +106,7 @@ id_topic_test %>%
 
 # 正式进行主题模型分析。
 # 获得测试范围内的最佳自定义主题数量：基尼系数最大，区分度最高。
-tar_k <- id_topic_ls %>% 
-  bind_rows() %>% 
+tar_k <- id_topic_test %>% 
   group_by(k, document) %>% 
   summarise(gini = Gini(gamma), .groups = "drop") %>% 
   group_by(k) %>% 
@@ -141,8 +156,36 @@ id_topic %>%
   slice_head(n = 10) %>% 
   ungroup() %>% 
   # 漏洞：需要提前更改id的类型。
-  left_join(mutate(jp_txt, id = as.character(id)), by = "id") %>% 
-  select(id, topic, q10) 
+  left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
+  select(id, topic, ven_reason_jp) 
 
 # 漏洞：待办：抽出和各个主题匹配度最高的前20名，让其他人试着根据预定义进行分类；抽出混合主题的回答，让其他人试着进行归类。
+
+# Ven score ~ topic ----
+# 从两个角度看主题和得分的关系。
+id_topic %>% 
+  left_join(select(survey, id, ven), by = "id") %>% 
+  # 漏洞：应该早点把383号删除。
+  filter(id != "383") %>% 
+  group_by(ven, topic) %>% 
+  summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(ven, gamma, fill = as.character(topic)), position = "fill") + 
+  theme_bw() + 
+  scale_fill_d3() + 
+  labs(x = "Ven", y = "Proportion", fill = "Topic") +
+  theme(axis.text.x = element_text(angle = 90))
+
+id_topic %>% 
+  left_join(select(survey, id, ven), by = "id") %>% 
+  # 漏洞：应该早点把383号删除。
+  filter(id != "383") %>% 
+  group_by(ven, topic) %>% 
+  summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(topic, gamma, fill = as.character(ven)), position = "fill") + 
+  theme_bw() + 
+  scale_fill_d3() + 
+  labs(x = "Topic", y = "Proportion", fill = "Ven") +
+  theme(axis.text.x = element_text(angle = 90))
 
