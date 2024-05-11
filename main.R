@@ -176,7 +176,16 @@ id_topic %>%
 
 # 漏洞：待办：抽出和各个主题匹配度最高的前20名，让其他人试着根据预定义进行分类；抽出混合主题的回答，让其他人试着进行归类。
 
-# Ven score ~ topic ----
+# Score ~ topic ----
+# 对狩猎的态度和对食用鹿肉的态度之间的关系。
+survey %>% 
+  group_by(ven, hunting) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(hunting, n, fill = ven), position = "fill")
+# 漏洞：注意：极度反感狩猎和极度喜欢狩猎的人都比较支持食用鹿肉，为什么呢？
+
+# 食用鹿肉打分和主题的关系。
 # 从两个角度看主题和得分的关系。
 id_topic %>% 
   left_join(select(survey, id, ven), by = "id") %>% 
@@ -202,5 +211,36 @@ id_topic %>%
   theme_bw() + 
   scale_fill_d3() + 
   labs(x = "Topic", y = "Proportion", fill = "Ven") +
+  theme(axis.text.x = element_text(angle = 90))
+
+# 对狩猎的态度和主题的关系。
+id_topic %>% 
+  left_join(select(survey, id, hunting), by = "id") %>% 
+  # 漏洞：应该早点把383号删除。
+  filter(id != "383") %>% 
+  group_by(hunting, topic) %>% 
+  summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(
+    aes(hunting, gamma, fill = as.character(topic)), position = "fill"
+  ) + 
+  theme_bw() + 
+  scale_fill_d3() + 
+  labs(x = "Hunting", y = "Proportion", fill = "Topic") +
+  theme(axis.text.x = element_text(angle = 90))
+
+id_topic %>% 
+  left_join(select(survey, id, hunting), by = "id") %>% 
+  # 漏洞：应该早点把383号删除。
+  filter(id != "383") %>% 
+  group_by(hunting, topic) %>% 
+  summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(
+    aes(topic, gamma, fill = as.character(hunting)), position = "fill"
+  ) + 
+  theme_bw() + 
+  scale_fill_d3() + 
+  labs(x = "Topic", y = "Proportion", fill = "Hunting") +
   theme(axis.text.x = element_text(angle = 90))
 
