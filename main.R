@@ -49,7 +49,7 @@ tok <- unnest_tokens(survey, word, ven_reason_jp) %>%
   anti_join(jp_stop_word, by = "word") %>% 
   count(id, word, sort = TRUE)
 
-# 计算分词的TF-IDF：一个词语如果在所有文档中都出现，那就不重要；但是如果仅出现非常少的次数，那也不重要；只有出现次数适中又独特的词语得高分。
+# 计算分词的TF-IDF：一个词语如果在一个文档中出现次数越多，通常越重要；但是如果它在其他所有文档中都出现，那就不重要；只有在某个文档中出现次数多，且其他文档中少出现的词才得高分。
 tf_idf <- tok %>% 
   bind_tf_idf(word, id, n) %>% 
   arrange(desc(tf_idf)) 
