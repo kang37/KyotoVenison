@@ -1,0 +1,193 @@
+---
+title: "Topic model"
+author: "Kang"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## 简介
+
+主题分析可用于对文本进行主题解读和分类。在本研究中，我们有600多个回答，我把这些回答根据他们所属的主题进行划分。该主题分析属于非监督分类方法，也就是说主题的含义不是预先定义好的，而是根据回答本身的特征进行分类，然后我们再根据分类后各个主题的关键词等信息解读各主题含义。一个类比是，如果你对一个班级的学生分类，可能会根据性别将他们分成两个或多个组；但是如果是对一个性别相同的团体进行分类，就不会把TA们分成男女，而是根据其他特征（例如身高）来分类。非监督分类方法就相当于对给定的一个有各种特征（性别、身高等）的群体，机器先判断哪个特征最适合区分群体中的个体，然后根据目标特征进行分类。
+
+## 方法描述
+
+文本分析的基本流程为：
+
+（1）先读取所有回答（我们称每个回答为\"文档\"）。
+
+（2）将每个文档进行分词，简单说就是把句子分成一个个的词语或词组。
+
+（3）去除停止词，所谓的停止词是一些没有重要意义的词汇，例如汉语中的\"的\"。
+
+（4）统计词语的频率，同时也可以计算词语的重要性（TF-IDF方法）。你可以想象，一个词语如果在一个文档中出现次数越多，通常越重要；但是如果它在其他所有文档中都出现，那就不重要；只有在某个文档中出现次数多，且其他文档中少出现的词才得高分。
+
+（5）用主题模型对各个回答文档进行归类，结果呈现为每个文档被划分到各个主题的概率，例如，如果我们希望所有文档被归入3个主题中，那么某个文档属于主题1、2、3的概率可能分别是0.8、0.1、0.1。
+
+（6）看对吃鹿肉和打猎的看法的打分和各个主题是什么关系。期待结果：例如会不会某个主题的打分通常更低，或者换个角度，会不会某个打分的人群更经常抱持某个主题观点。
+
+## 判断主题数量
+
+运用主题模型，需要先定义主题数量。如果主题数量很少，例如极端情况下（理论上并不合理），我们将所有文档只归入1个主题中，那么所有文档属于该主题的概率就是100%，这种主题划分就没有意义了；再往前一步，如果分成2个主题，如果文档之间有很好的区分度，那没有问题，但是也可能出现大部分文档归入两个主题的概率都差不多是50%，区分度不够高；反之，如果我们将600个文档归入将近600个主题，那每个文档肯定会有所属概率更高的主题类别，但是主题太多，归类的意义也就小了。因此，在定义主题数量的时候，我们希望尽量少，但是又有足够的区分度。
+
+此处我使用的方法是：给定一个范围的主题数量（从2到20），得出各种情况下，每个文档属于各个主题的概率；计算每个文档划入各个主题的概率的基尼系数，如果基尼系数越高，说明这些概率越离散，区分度越高，反之则说明区分度较差。例如，在主题数量为3的情况下，文档A属于3个主题的概率是0.8、0.1、0.1，则基尼系数为0.7，文档B的概率是0.5、0.3、0.2，则基尼系数为0.3，显然前者比后者区分度要高，因为它几乎是很确定地属于第一个文档。这样一来，我们就有主题数量从2到20情况下分类结果中各文档概率的基尼系数，将它们进行排序，从基尼系数高的主题数量中，选一个最小的主题数量即可。
+
+首先看看不同主题数量下，各个文档分属于不同主题的概率。下图中格子颜色表示概率，红色为高概率，绿色为低概率。如果某个子图中，一列中有非常红的红色和大量非常绿的绿色，就表示区分度很好；反之区分度较差。可见图2、3、4都是比较混沌的颜色，格子糊成一片，各个文档属于不同主题的概率基本上都在50%上下，区分度很差；而从图5开始，有了比较清晰的鲜红色和鲜绿色。
+
+```{r}
+id_topic_ls %>% 
+  bind_rows() %>% 
+  ggplot() + 
+  geom_tile(aes(document, as.integer(topic), fill = gamma)) + 
+  scale_fill_gradient(high = "red", low = "green") + 
+  theme(axis.text.x = element_blank()) + 
+  facet_wrap(.~ k, scales = "free_y")
+```
+
+然后再检验一下基尼系数的变化是否和上图吻合。可见，在预定义主题数量增加到6的时候，基尼系数发生了剧变，也就是说区分度突然变高。该结果和上图一致。因此，我们选择将文档分成6个类别。
+
+```{r}
+id_topic_test %>% 
+  group_by(k, document) %>% 
+  summarise(gini = Gini(gamma)) %>% 
+  ungroup() %>% 
+  mutate(k = factor(k, levels = as.character(range_k))) %>% 
+  ggplot() + 
+  geom_boxplot(aes(k, gini)) + 
+  theme_bw() + 
+  labs(x = "Topic number", y = "Gini")
+```
+
+## 主题模型结果
+
+下面先展示主题划分结果的区分度。然后查看主题划分结果中，各个主题的关键词，以及属于各个主题的若干文档原文。最后我们结合关键词和文档原文，解读各个主题的含义。
+
+首先评估区分度。我将基尼系数划分为3个级别，每个级别下，各文档属于6个主题的概率如下图所示。可见基尼系数越高，鲜红色和鲜绿色就越多，也就是说区分度越高。符合预期。
+
+```{r}
+id_topic %>% 
+  ggplot() + 
+  geom_tile(aes(id, topic, fill = gamma)) + 
+  facet_wrap(.~ gini_cls, scales = "free_x", ncol = 1) + 
+  theme(axis.text.x = element_blank()) + 
+  scale_fill_gradient(high = "red", low = "green")
+```
+
+6个主题的前15位关键词提取如下。需要说明一下这个结果之后可能会微调，因为我们的原始数据中有些小问题。
+
+```{r}
+library(knitr)
+library(kableExtra)
+tidy(lda, matrix = "beta") %>% 
+  group_by(topic) %>% 
+  slice_max(beta, n = 15) %>% 
+  mutate(term = reorder_within(term, beta, topic)) %>% 
+  summarise(term = list(term), .groups = "drop") %>% 
+  mutate(
+    term = unlist(lapply(term, function(x) paste0(x, collapse = ", ")))
+  ) %>% 
+  mutate(term = gsub("_", "", term), term = gsub("[0-9]", "", term)) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+抽出各个主题下的若干文档原文。正如之前介绍的，某个回答文档通常并非完全属于某个主题，也就是说，就像我们日常说话一样，每个回答都包含了不止一个主题，它可能80%和主题1相关，15%和主题2相关，剩下5%在谈论主题3。所以在这里，我实际上是抽出各个主题下，和该主题最相关的几条回答文档。
+
+```{r}
+id_topic %>% 
+  group_by(topic) %>% 
+  arrange(topic, -gamma) %>% 
+  slice_head(n = 10) %>% 
+  ungroup() %>% 
+  # 漏洞：需要提前更改id的类型。
+  left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
+  select(id, topic, ven_reason_jp) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+**Just for fun：请你结合以上信息对各个主题进行含义概括，然后再找我要我的解读结果，我们可以核对一下我们的解读是否一致。当然，从工作效率角度说，也可以直接找我要结果用于写作。**
+
+## 主题和打分
+
+那么对食用鹿肉的态度、对狩猎的态度、谈论原因的主题之间是什么关系呢？
+
+首先看看对食用鹿肉的态度和对狩猎态度的打分之间的关系。从下图可以看出，极度反感狩猎和极度喜欢狩猎的人都比较支持食用鹿肉，**为什么呢？需要从原始数据中找答案。**
+
+```{r}
+survey %>% 
+  group_by(ven, hunting) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(hunting, n, fill = ven), position = "fill")
+```
+
+那么对食用鹿肉的态度和谈论原因主题之间的关系呢？从下图可见，反对和中立的人更关注主题6，而支持的人更关注主题5，反对的人相比中立和支持的人，更关注主题2和3。
+
+```{r}
+id_topic %>% 
+  left_join(select(survey, id, ven), by = "id") %>% 
+  # 漏洞：应该早点把383号删除。
+  filter(id != "383") %>% 
+  group_by(ven, topic) %>% 
+  summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(ven, gamma, fill = as.character(topic)), position = "fill") + 
+  theme_bw() + 
+  scale_fill_d3() + 
+  labs(x = "Ven", y = "Proportion", fill = "Topic") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+从另一个角度看，谈论主题1、3、4的人更加对食用鹿肉的态度更加积极。
+
+```{r}
+id_topic %>% 
+  left_join(select(survey, id, ven), by = "id") %>% 
+  # 漏洞：应该早点把383号删除。
+  filter(id != "383") %>% 
+  group_by(ven, topic) %>% 
+  summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(topic, gamma, fill = as.character(ven)), position = "fill") + 
+  theme_bw() + 
+  scale_fill_d3() + 
+  labs(x = "Topic", y = "Proportion", fill = "Ven") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+那么对狩猎的态度和谈论原因主题之间的关系呢？同样可以从两个角度来看。注意这里有些人没有打分，所以原始数据还需要再调整。但是从下图可以看出，对狩猎态度与主题之间的关系比较弱（相比对食用态度和主题之间的关系而言）。当然这也合理，因为主题分析对象文档本身就是针对\"对食用鹿肉态度\"对扩展提问，而非针对\"对狩猎态度\"的扩展提问。
+
+```{r}
+# 对狩猎的态度和主题的关系。
+id_topic %>% 
+  left_join(select(survey, id, hunting), by = "id") %>% 
+  # 漏洞：应该早点把383号删除。
+  filter(id != "383") %>% 
+  group_by(hunting, topic) %>% 
+  summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(
+    aes(hunting, gamma, fill = as.character(topic)), position = "fill"
+  ) + 
+  theme_bw() + 
+  scale_fill_d3() + 
+  labs(x = "Hunting", y = "Proportion", fill = "Topic") +
+  theme(axis.text.x = element_text(angle = 90))
+
+id_topic %>% 
+  left_join(select(survey, id, hunting), by = "id") %>% 
+  # 漏洞：应该早点把383号删除。
+  filter(id != "383") %>% 
+  group_by(hunting, topic) %>% 
+  summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(
+    aes(topic, gamma, fill = as.character(hunting)), position = "fill"
+  ) + 
+  theme_bw() + 
+  scale_fill_d3() + 
+  labs(x = "Topic", y = "Proportion", fill = "Hunting") +
+  theme(axis.text.x = element_text(angle = 90))
+```

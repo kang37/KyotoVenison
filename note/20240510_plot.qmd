@@ -1,0 +1,41 @@
+---
+title: "变量间统计关系"
+author: "康杰锋"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+于朱珠之前用SPSS做了一些变量之间的关系，例如年龄和吃鹿肉打分、性别和狩猎之间的关系等。此处重复其中一部分测试，并提供一些可视化样式的例子，如果需要生成类似的内容，可以进一步讨论。
+
+首先是对狩猎态度和性别之间的关系，狩猎态度是等级变量，性别是分类变量。因此不严格的情况下，可以用盒形图可视化；不检验是否符合正态分布等的前提下，采用ANOVA进行统计对比。其中，盒形图如下。
+
+```{r}
+ggplot(survey, aes(as.character(gender), hunting)) + 
+  # 性别存在缺值，且有3个取值？其中“0”和“1”应该是生理性别的两个分组。
+  geom_boxplot() + 
+  # 还可以加上散点。
+  # geom_jitter() + 
+  labs(x = "Gender", y = "Hunting attitude") + 
+  theme_bw()
+```
+
+统计分组对比如下。可见p值为0.555，所以结果不显著，也就是说不同性别（但是这里原始数据存在问题）对狩猎的态度无显著差异。
+
+```{r}
+summary(aov(hunting ~ gender, data = survey))
+```
+
+实际上如果数据不符合正态分布的话，应该采用非参数方法，而我用非参数方法做的结果也是无显著差异。
+
+```{r}
+kruskal.test(survey$hunting, survey$gender)
+```
+
+但是对食用鹿肉的态度和性别有显著差异，不知道这和于朱珠的分析是否一致。
+
+```{r}
+summary(aov(ven ~ gender, data = survey))
+kruskal.test(survey$ven, survey$gender)
+```
