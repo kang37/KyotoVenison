@@ -91,8 +91,9 @@ id_topic_test <-
 id_topic_ls %>% 
   bind_rows() %>% 
   ggplot() + 
-  geom_tile(aes(document, topic, fill = gamma)) + 
+  geom_tile(aes(document, as.integer(topic), fill = gamma)) + 
   scale_fill_gradient(high = "red", low = "green") + 
+  theme(axis.text.x = element_blank()) + 
   facet_wrap(.~ k, scales = "free_y")
 # 计算基尼系数并比较不同自定义主题数量下基尼系数的差异。
 id_topic_test %>% 
@@ -102,7 +103,8 @@ id_topic_test %>%
   mutate(k = factor(k, levels = as.character(range_k))) %>% 
   ggplot() + 
   geom_boxplot(aes(k, gini)) + 
-  theme_bw()
+  theme_bw() + 
+  labs(x = "Topic number", y = "Gini")
 
 # 正式进行主题模型分析。
 # 获得测试范围内的最佳自定义主题数量：基尼系数最大，区分度最高。
@@ -116,18 +118,7 @@ tar_k <- id_topic_test %>%
 # 构建LDA数据。
 lda <- LDA(dtm, k = tar_k, control = list(seed = 1234))
 
-# 转化成可阅读的主题数据，并取每个主题的前几位关键词。
-# 漏洞：需要再增加停止词，并且统一日语词汇如“鹿”和“しか”。
-tidy(lda, matrix = "beta") %>% 
-  group_by(topic) %>% 
-  slice_max(beta, n = 15) %>% 
-  mutate(term = reorder_within(term, beta, topic)) %>% 
-  summarise(term = list(term), .groups = "drop") %>% 
-  mutate(
-    term = unlist(lapply(term, function(x) paste0(x, collapse = ", ")))
-  ) %>% 
-  mutate(term = gsub("_", "", term), term = gsub("[0-9]", "", term))
-
+# 评估区分度。
 # 每个回答属于各个主题的概率。
 id_topic <- tidy(lda, matrix = "gamma") %>% 
   # 计算基尼系数。
@@ -149,6 +140,18 @@ id_topic %>%
   theme(axis.text.x = element_blank()) + 
   scale_fill_gradient(high = "red", low = "green")
 
+# 转化成可阅读的主题数据，并取每个主题的前几位关键词。
+# 漏洞：需要再增加停止词，并且统一日语词汇如“鹿”和“しか”。
+tidy(lda, matrix = "beta") %>% 
+  group_by(topic) %>% 
+  slice_max(beta, n = 15) %>% 
+  mutate(term = reorder_within(term, beta, topic)) %>% 
+  summarise(term = list(term), .groups = "drop") %>% 
+  mutate(
+    term = unlist(lapply(term, function(x) paste0(x, collapse = ", ")))
+  ) %>% 
+  mutate(term = gsub("_", "", term), term = gsub("[0-9]", "", term))
+
 # 抽出和各个主题匹配度最高的前10条回答，解读各个主题的含义。
 id_topic %>% 
   group_by(topic) %>% 
@@ -158,6 +161,18 @@ id_topic %>%
   # 漏洞：需要提前更改id的类型。
   left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
   select(id, topic, ven_reason_jp) 
+# 用于获得某个主题下纯文档原文数据的代码如下。
+# id_topic %>% 
+#   group_by(topic) %>% 
+#   arrange(topic, -gamma) %>% 
+#   slice_head(n = 10) %>% 
+#   ungroup() %>% 
+#   # 漏洞：需要提前更改id的类型。
+#   left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
+#   select(id, topic, ven_reason_jp) %>% 
+#   filter(topic == 6) %>% 
+#   pull(ven_reason_jp) %>% 
+#   cat(sep = "\n")
 
 # 漏洞：待办：抽出和各个主题匹配度最高的前20名，让其他人试着根据预定义进行分类；抽出混合主题的回答，让其他人试着进行归类。
 
