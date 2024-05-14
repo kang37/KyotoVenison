@@ -3,7 +3,7 @@
 
 # Preparation ----
 pacman::p_load(
-  openxlsx, dplyr, tidytext, stopwords, topicmodels, ggplot2, 
+  openxlsx, dplyr, tidytext, stopwords, topicmodels, ggplot2, ggsci, 
   DescTools, showtext
 )
 showtext_auto()
@@ -88,7 +88,7 @@ id_topic_test <-
   setNames(as.character(range_k)) %>% 
   bind_rows()
 # 计算基尼系数之前，先直观观察不同主题下文档主题划分的区分度。如果区分度越高，格子之间的颜色差异就越明显。
-id_topic_ls %>% 
+id_topic_test %>% 
   bind_rows() %>% 
   ggplot() + 
   geom_tile(aes(document, as.integer(topic), fill = gamma)) + 
