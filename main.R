@@ -9,27 +9,26 @@ pacman::p_load(
 showtext_auto()
 
 # Data ----
-# 问卷调查Q10的日语内容。
-jp_txt <- read.xlsx("data_raw/HWGM Data (2).xlsx", sheet = "Japanese") %>% 
-  tibble() %>% 
-  select(id = "No.", ven_reason_jp = "Q10") %>% 
-  mutate(id = as.character(id))
-# 问卷调查Q10态度分数、性别、对狩猎的态度分数等。
+# 问卷调查吃肉态度得分、性别、对狩猎的态度分数等。
 survey <- 
-  read.xlsx(
-    "data_raw/HWGM Data (2).xlsx", sheet = "data (2)", startRow = 2
-  ) %>% 
+  read.xlsx("data_raw/kyoto_vension_raw.xlsx", sheet = "Num") %>% 
   tibble() %>% 
   rename_with(~ tolower(.x)) %>% 
-  rename(id = "no.", ven = attitude, ven_reason_en = "the.reason") %>% 
+  rename(id = "no.") %>% 
   mutate(
     id = as.character(id), 
-    ven = as.character(ven), 
-    hunting = as.integer(hunting)
+    ven = as.character(q10), 
+    hunting = as.integer(q11b)
   ) %>% 
+  select(id, gender, age, education, ven, hunting) %>% 
   # 加入Q10日语回答信息。
-  left_join(jp_txt, by = "id") %>% 
-  filter(!is.na(ven_reason_jp), !is.na(ven))
+  left_join(
+    read.xlsx("data_raw/kyoto_vension_raw.xlsx", sheet = "Text") %>%
+      select(id = "No.", ven_reason = "Q10") %>% 
+      mutate(id = as.character(id)), 
+    by = "id"
+  ) %>% 
+  filter(!is.na(ven_reason), !is.na(ven), !is.na(hunting), gender != 2)
 
 # 停止词：在分词之后去除的不重要的日语词汇。
 jp_stop_word <- tibble(
@@ -44,7 +43,7 @@ jp_stop_word <- tibble(
 )
 
 # 分词：文本分析的基础，将文档分成一个个单独的词。
-tok <- unnest_tokens(survey, word, ven_reason_jp) %>% 
+tok <- unnest_tokens(survey, word, ven_reason) %>% 
   # 去除停止词。
   anti_join(jp_stop_word, by = "word") %>% 
   count(id, word, sort = TRUE)
@@ -160,7 +159,7 @@ id_topic %>%
   ungroup() %>% 
   # 漏洞：需要提前更改id的类型。
   left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
-  select(id, topic, ven_reason_jp) 
+  select(id, topic, ven_reason) 
 # 用于获得某个主题下纯文档原文数据的代码如下。
 # id_topic %>% 
 #   group_by(topic) %>% 
@@ -169,9 +168,9 @@ id_topic %>%
 #   ungroup() %>% 
 #   # 漏洞：需要提前更改id的类型。
 #   left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
-#   select(id, topic, ven_reason_jp) %>% 
+#   select(id, topic, ven_reason) %>% 
 #   filter(topic == 6) %>% 
-#   pull(ven_reason_jp) %>% 
+#   pull(ven_reason) %>% 
 #   cat(sep = "\n")
 
 # 漏洞：待办：抽出和各个主题匹配度最高的前20名，让其他人试着根据预定义进行分类；抽出混合主题的回答，让其他人试着进行归类。
