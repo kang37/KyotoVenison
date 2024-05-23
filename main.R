@@ -28,7 +28,20 @@ survey <-
       mutate(id = as.character(id)), 
     by = "id"
   ) %>% 
-  filter(!is.na(ven_reason), !is.na(ven), !is.na(hunting), gender != 2)
+  filter(
+    !is.na(ven_reason), !is.na(ven), !is.na(hunting), 
+    !is.na(gender), gender != 2, !is.na(age)
+  ) %>% 
+  # 删除不符合要求的回答。383号受访者的回答是“わからない”。725号的回答是“Don't have any information about it .so,I can't say”。
+  filter(id != "383", id != "725") %>% 
+  # 将部分非日文文本翻译成日文。食用ChatGPT 3.5进行翻译，指令为“Translate the text to Japanese: [text]”。
+  mutate(ven_reason = case_when(
+    ven_reason == "没有这个习惯…像是要吃狗肉一样不舒服" ~ 
+      "この習慣がないから…犬の肉を食べるみたいに気持ち悪い", 
+    ven_reason == "鹿鹿那么可爱怎么可以吃鹿鹿~" ~ 
+      "鹿はこんなに可愛いのに、どうして鹿を食べられるの？", 
+    TRUE ~ ven_reason
+  ))
 
 # Correlation ----
 ## Vension score ~ attributes ----
@@ -144,13 +157,15 @@ id_topic_test %>%
 
 # 正式进行主题模型分析。
 # 获得测试范围内的最佳自定义主题数量：基尼系数最大，区分度最高。
-tar_k <- id_topic_test %>% 
-  group_by(k, document) %>% 
-  summarise(gini = Gini(gamma), .groups = "drop") %>% 
-  group_by(k) %>% 
-  summarise(gini = mean(gini)) %>% 
-  filter(gini == max(gini)) %>% 
-  .$k
+(
+  tar_k <- id_topic_test %>% 
+    group_by(k, document) %>% 
+    summarise(gini = Gini(gamma), .groups = "drop") %>% 
+    group_by(k) %>% 
+    summarise(gini = mean(gini)) %>% 
+    filter(gini == max(gini)) %>% 
+    .$k
+)
 # 构建LDA数据。
 lda <- LDA(dtm, k = tar_k, control = list(seed = 1234))
 
