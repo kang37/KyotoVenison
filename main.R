@@ -9,7 +9,7 @@ pacman::p_load(
 showtext_auto()
 
 # Data ----
-# 问卷调查吃肉态度得分、性别、对狩猎的态度分数等。
+# 问卷调查吃鹿肉态度得分、性别、对狩猎的态度分数等。
 survey <- 
   read.xlsx("data_raw/kyoto_vension_raw.xlsx", sheet = "Num") %>% 
   tibble() %>% 
@@ -32,17 +32,17 @@ survey <-
 
 # Correlation ----
 ## Vension score ~ attributes ----
-# 吃肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比。
+# 吃鹿肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比。
 by(as.numeric(survey$ven), survey$gender, shapiro.test)
 # 男女组均不符合正态分布，因此用非参数方法进行组间对比。
 kruskal.test(as.numeric(survey$ven) ~ survey$gender)
-# 结论：不同性别之间吃肉态度有差异。
+# 结论：不同性别之间吃鹿肉态度有差异。
 
-# 吃肉态度～年龄组：大部分年龄组不符合正态分布，因此用非参数方法。
+# 吃鹿肉态度～年龄组：大部分年龄组不符合正态分布，因此用非参数方法。
 by(as.numeric(survey$ven), survey$age, shapiro.test)
 kruskal.test(as.numeric(survey$ven) ~ survey$age)
 
-# 吃肉态度～教育水平。
+# 吃鹿肉态度～教育水平。
 lapply(
   as.character(1:4), 
   function(x) {
@@ -62,7 +62,7 @@ kruskal.test(as.numeric(survey$hunting) ~ survey$gender)
 by(as.numeric(survey$hunting), survey$age, shapiro.test)
 kruskal.test(as.numeric(survey$hunting) ~ survey$age)
 
-# 吃肉态度～狩猎态度。
+# 吃鹿肉态度～狩猎态度。
 lapply(
   as.character(1:4), 
   function(x) {
