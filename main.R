@@ -110,16 +110,6 @@ test_k_topic <- function(k_x) {
   # 生成LDA数据。
   lda <- LDA(dtm, k_x, control = list(seed = 1234))
   
-  # 转化成可阅读的主题数据框并取前十位可视化。
-  # tidy(lda, matrix = "beta") %>% 
-  #   group_by(topic) %>% 
-  #   slice_max(beta, n = 10) %>% 
-  #   ungroup() %>% 
-  #   mutate(term = reorder_within(term, beta, topic)) %>% 
-  #   ggplot(aes(beta, term)) + 
-  #   geom_col() + 
-  #   facet_wrap(~ topic, scales = "free")
-  
   # 各篇文章属于各个主题的概率。
   id_topic_res <- tidy(lda, matrix = "gamma") %>% 
     mutate(k = k_x)
