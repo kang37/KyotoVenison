@@ -30,6 +30,53 @@ survey <-
   ) %>% 
   filter(!is.na(ven_reason), !is.na(ven), !is.na(hunting), gender != 2)
 
+# Correlation ----
+## Vension score ~ attributes ----
+# 吃肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比。
+by(as.numeric(survey$ven), survey$gender, shapiro.test)
+# 男女组均不符合正态分布，因此用非参数方法进行组间对比。
+kruskal.test(as.numeric(survey$ven) ~ survey$gender)
+# 结论：不同性别之间吃肉态度有差异。
+
+# 吃肉态度～年龄组：大部分年龄组不符合正态分布，因此用非参数方法。
+by(as.numeric(survey$ven), survey$age, shapiro.test)
+kruskal.test(as.numeric(survey$ven) ~ survey$age)
+
+# 吃肉态度～教育水平。
+lapply(
+  as.character(1:4), 
+  function(x) {
+    filter(survey, education == x)$ven %>% 
+      as.numeric() %>% 
+      shapiro.test()
+  }
+)
+kruskal.test(as.numeric(survey$ven) ~ survey$education)
+
+## Hunting score ~ attributes ----
+# 狩猎态度～性别。
+by(as.numeric(survey$hunting), survey$gender, shapiro.test)
+kruskal.test(as.numeric(survey$hunting) ~ survey$gender)
+
+# 狩猎态度～年龄组。
+by(as.numeric(survey$hunting), survey$age, shapiro.test)
+kruskal.test(as.numeric(survey$hunting) ~ survey$age)
+
+# 吃肉态度～狩猎态度。
+lapply(
+  as.character(1:4), 
+  function(x) {
+    filter(survey, education == x)$hunting %>% 
+      as.numeric() %>% 
+      shapiro.test()
+  }
+)
+kruskal.test(as.numeric(survey$hunting) ~ survey$education)
+
+## Vension score ~ hunting score ----
+cor.test(as.numeric(survey$ven), as.numeric(survey$hunting))
+
+# Text mining ----
 # 停止词：在分词之后去除的不重要的日语词汇。
 jp_stop_word <- tibble(
   word = c(
@@ -53,7 +100,7 @@ tf_idf <- tok %>%
   bind_tf_idf(word, id, n) %>% 
   arrange(desc(tf_idf)) 
 
-# Topic model ----
+## Topic model ----
 # 生成term-document矩阵。
 dtm <- cast_dtm(tf_idf, id, word, n)
 
@@ -175,7 +222,7 @@ id_topic %>%
 
 # 漏洞：待办：抽出和各个主题匹配度最高的前20名，让其他人试着根据预定义进行分类；抽出混合主题的回答，让其他人试着进行归类。
 
-# Score ~ topic ----
+## Score ~ topic ----
 # 对狩猎的态度和对食用鹿肉的态度之间的关系。
 survey %>% 
   group_by(ven, hunting) %>% 
