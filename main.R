@@ -62,7 +62,7 @@ kruskal.test(as.numeric(survey$hunting) ~ survey$gender)
 by(as.numeric(survey$hunting), survey$age, shapiro.test)
 kruskal.test(as.numeric(survey$hunting) ~ survey$age)
 
-# 吃鹿肉态度～狩猎态度。
+# 狩猎态度～教育水平。
 lapply(
   as.character(1:4), 
   function(x) {
