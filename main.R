@@ -157,15 +157,23 @@ id_topic_test %>%
 
 # 正式进行主题模型分析。
 # 获得测试范围内的最佳自定义主题数量：基尼系数最大，区分度最高。
+# 计算突变点：平均基尼系数突然增加的点对应的主题数，就是目标主题数。
+gini_chg_rate <- id_topic_test %>% 
+  group_by(k, document) %>% 
+  summarise(gini = Gini(gamma), .groups = "drop") %>% 
+  group_by(k) %>% 
+  summarise(gini = mean(gini), .groups = "drop") %>% 
+  mutate(
+    gini_lag = lag(gini), gini_mean_chg_rate = (gini - gini_lag) / gini_lag
+  )
+ggplot(gini_chg_rate) + 
+  geom_point(aes(k, gini_mean_chg_rate))
 (
-  tar_k <- id_topic_test %>% 
-    group_by(k, document) %>% 
-    summarise(gini = Gini(gamma), .groups = "drop") %>% 
-    group_by(k) %>% 
-    summarise(gini = mean(gini)) %>% 
-    filter(gini == max(gini)) %>% 
-    .$k
+  tar_k <- gini_chg_rate %>% 
+    filter(gini_mean_chg_rate == max(gini_mean_chg_rate, na.rm = TRUE)) %>% 
+    pull(k)
 )
+
 # 构建LDA数据。
 lda <- LDA(dtm, k = tar_k, control = list(seed = 1234))
 
