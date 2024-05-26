@@ -1,0 +1,111 @@
+---
+title: "Topic model"
+author: "Kang"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## 简介
+
+可用两种方法进行主题分析：tidytext（以下简称\"T\"方法）和quanteda（以下简称\"Q\"方法）。但是两者分析出来的结果有一定差异，此处记录这些差异。
+
+## 目标主题数
+
+目标主题数同样通过基尼系数的突变来判断。其中，T结果如下。突变点为7，且之后基尼系数又逐渐减少，因此最佳主题数为7。
+
+```{r}
+id_topic_test %>% 
+  group_by(k, id) %>% 
+  summarise(gini = Gini(gamma)) %>% 
+  ungroup() %>% 
+  mutate(k = factor(k, levels = as.character(range_k))) %>% 
+  ggplot() + 
+  geom_boxplot(aes(k, gini)) + 
+  theme_bw() + 
+  labs(x = "Topic number", y = "Gini")
+```
+
+Q主题结果如下，结果类似，最佳主题数为7。
+
+```{r}
+quan_id_topic_test %>% 
+  group_by(k, id) %>% 
+  summarise(gini = Gini(gamma), .groups = "drop") %>% 
+  mutate(k = factor(k, levels = as.character(range_k))) %>% 
+  ggplot() + 
+  geom_boxplot(aes(k, gini)) + 
+  theme_bw() + 
+  labs(x = "Topic number", y = "Gini")
+```
+
+## 各主题关键词
+
+T方法下7个主题的前15位关键词提取如下。需要说明一下这个结果之后可能会微调，因为我的停止词设置还有些小问题。
+
+```{r}
+library(knitr)
+library(kableExtra)
+tidy(lda, matrix = "beta") %>% 
+  group_by(topic) %>% 
+  slice_max(beta, n = 15) %>% 
+  mutate(term = reorder_within(term, beta, topic)) %>% 
+  summarise(term = list(term), .groups = "drop") %>% 
+  mutate(
+    term = unlist(lapply(term, function(x) paste0(x, collapse = ", ")))
+  ) %>% 
+  mutate(term = gsub("_", "", term), term = gsub("[0-9]", "", term)) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+Q主题关键词如下。
+
+```{r}
+tidy(quan_lda, matrix = "beta") %>% 
+  group_by(topic) %>% 
+  slice_max(beta, n = 15) %>% 
+  mutate(term = reorder_within(term, beta, topic)) %>% 
+  summarise(term = list(term), .groups = "drop") %>% 
+  mutate(
+    term = unlist(lapply(term, function(x) paste0(x, collapse = ", ")))
+  ) %>% 
+  mutate(term = gsub("_", "", term), term = gsub("[0-9]", "", term)) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+## 各主题典型原文
+
+抽出各个主题下的若干文档原文。正如之前介绍的，某个回答文档通常并非完全属于某个主题，也就是说，就像我们日常说话一样，每个回答都包含了不止一个主题，它可能80%和主题1相关，15%和主题2相关，剩下5%在谈论主题3。所以在这里，我实际上是抽出各个主题下，和该主题最相关的几条回答文档。
+
+T方法下典型原文如下：
+
+```{r}
+id_topic %>% 
+  group_by(topic) %>% 
+  arrange(topic, -gamma) %>% 
+  slice_head(n = 10) %>% 
+  ungroup() %>% 
+  # 漏洞：需要提前更改id的类型。
+  left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
+  select(id, topic, ven_reason) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+Q主题结果如下：
+
+```{r}
+quan_id_topic %>% 
+  group_by(topic) %>% 
+  arrange(topic, -gamma) %>% 
+  slice_head(n = 10) %>% 
+  ungroup() %>% 
+  # 漏洞：需要提前更改id的类型。
+  left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
+  select(id, topic, ven_reason) %>% 
+  kable() %>% 
+  kable_styling()
+```

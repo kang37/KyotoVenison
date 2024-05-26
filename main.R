@@ -135,18 +135,19 @@ range_k <- 2:20
 id_topic_test <- 
   lapply(range_k, test_k_topic) %>% 
   setNames(as.character(range_k)) %>% 
-  bind_rows()
+  bind_rows() %>% 
+  rename(id = document)
 # 计算基尼系数之前，先直观观察不同主题下文档主题划分的区分度。如果区分度越高，格子之间的颜色差异就越明显。
 id_topic_test %>% 
   bind_rows() %>% 
   ggplot() + 
-  geom_tile(aes(document, as.integer(topic), fill = gamma)) + 
+  geom_tile(aes(id, as.integer(topic), fill = gamma)) + 
   scale_fill_gradient(high = "red", low = "green") + 
   theme(axis.text.x = element_blank()) + 
   facet_wrap(.~ k, scales = "free_y")
 # 计算基尼系数并比较不同自定义主题数量下基尼系数的差异。
 id_topic_test %>% 
-  group_by(k, document) %>% 
+  group_by(k, id) %>% 
   summarise(gini = Gini(gamma)) %>% 
   ungroup() %>% 
   mutate(k = factor(k, levels = as.character(range_k))) %>% 
