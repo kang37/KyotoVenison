@@ -10,7 +10,7 @@ showtext_auto()
 
 # 问卷调查吃鹿肉态度得分、性别、对狩猎的态度分数等。
 survey <- 
-  read.xlsx("data_raw/kyoto_vension_raw.xlsx", sheet = "Num") %>% 
+  read.xlsx("data_raw/kyoto_venison_raw.xlsx", sheet = "Num") %>% 
   tibble() %>% 
   rename_with(~ tolower(.x)) %>% 
   rename(id = "no.") %>% 
@@ -55,7 +55,7 @@ survey <-
   mutate(ven_reason = gsub("美味い", "美味しい", ven_reason))
 
 # Correlation ----
-## Vension score ~ attributes ----
+## Venison score ~ attributes ----
 # 吃鹿肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比。
 by(as.numeric(survey$ven), survey$gender, shapiro.test)
 # 男女组均不符合正态分布，因此用非参数方法进行组间对比。
