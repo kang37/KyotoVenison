@@ -103,10 +103,56 @@ kruskal.test(as.numeric(survey$hunting) ~ survey$education)
 ## Venison score ~ hunting score ----
 cor.test(as.numeric(survey$ven), as.numeric(survey$hunting))
 
-## Vension score ~ encounter deer ----
+## Venison score ~ encounter deer ----
 # 吃肉态度和是否在城市里看见过鹿的关系。
 by(as.numeric(survey$ven), survey$q2, shapiro.test)
 kruskal.test(as.numeric(survey$ven) ~ as.character(survey$q2))
+
+## Venison score ~ deer impression ----
+# 吃肉态度和对鹿的印象的关系。
+survey <- cbind(
+  survey, 
+  sapply(head(letters, 8), function(letter) grepl(letter, survey$q7)) %>% 
+    as.data.frame() %>% 
+    rename_with(~ paste0("q7_", .))
+)
+
+lapply(
+  paste0("q7_", head(letters, 8)), 
+  function(x) {
+    print(x)
+    kruskal.test(as.numeric(survey$ven) ~ as.character(survey[[x]])) %>% 
+      print()
+  }
+)
+
+# 如果有显著差异，则进一步分析。
+survey %>% 
+  filter(!is.na(ven)) %>% 
+  group_by(q7_b, ven) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(q7_b, n, fill = ven), position = "fill")
+by(as.numeric(survey$ven), survey$q7_b, function(x) median(x, na.rm = T))
+by(as.numeric(survey$ven), survey$q7_b, function(x) mean(x, na.rm = T))
+
+survey %>% 
+  filter(!is.na(ven)) %>% 
+  group_by(q7_e, ven) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(q7_e, n, fill = ven), position = "fill")
+by(as.numeric(survey$ven), survey$q7_e, function(x) median(x, na.rm = T))
+by(as.numeric(survey$ven), survey$q7_e, function(x) mean(x, na.rm = T))
+
+survey %>% 
+  filter(!is.na(ven)) %>% 
+  group_by(q7_f, ven) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(q7_f, n, fill = ven), position = "fill")
+by(as.numeric(survey$ven), survey$q7_f, function(x) median(x, na.rm = T))
+by(as.numeric(survey$ven), survey$q7_f, function(x) mean(x, na.rm = T))
 
 # Text mining data ----
 # 停止词：在分词之后去除的不重要的日语词汇。
