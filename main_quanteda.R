@@ -3,8 +3,8 @@
 
 # Preparation ----
 pacman::p_load(
-  openxlsx, dplyr, stopwords, topicmodels, ggplot2, ggsci, 
-  DescTools, quanteda, quanteda.textstats, LSX, showtext
+  openxlsx, dplyr, stopwords, topicmodels, ggplot2, ggsci, DescTools, 
+  tidytext, quanteda, quanteda.textstats, LSX, showtext
 )
 showtext_auto()
 
@@ -19,7 +19,7 @@ survey <-
     ven = as.character(q10), 
     hunting = as.integer(q11b)
   ) %>% 
-  select(id, gender, age, education, ven, hunting) %>% 
+  # select(id, gender, age, education, ven, hunting) %>% 
   # 加入Q10日语回答信息。
   left_join(
     read.xlsx("data_raw/kyoto_vension_raw.xlsx", sheet = "Text") %>%
@@ -27,10 +27,16 @@ survey <-
       mutate(id = as.character(id)), 
     by = "id"
   ) %>% 
-  filter(
-    !is.na(ven_reason), !is.na(ven), !is.na(hunting), 
-    !is.na(gender), gender != 2, !is.na(age)
-  ) %>% 
+  # 漏洞：该数据筛选操作是否合理？
+  mutate(gender = case_when(
+    gender == 2 ~ NA, gender == 0 | gender == 1 ~ gender, is.na(gender) ~ NA
+  )) %>% 
+  filter(!is.na(ven_reason)) %>% 
+  # 漏洞：是否需要执行更加严格的数据筛选操作？
+  # filter(
+  #   !is.na(ven_reason), !is.na(ven), !is.na(hunting), 
+  #   !is.na(gender), gender != 2, !is.na(age)
+  # ) %>% 
   # 删除不符合要求的回答。383号受访者的回答是“わからない”。725号的回答是“Don't have any information about it .so,I can't say”。
   filter(id != "383", id != "725") %>% 
   # 将部分非日文文本翻译成日文。食用ChatGPT 3.5进行翻译，指令为“Translate the text to Japanese: [text]”。
@@ -44,7 +50,8 @@ survey <-
   # 将一些假名换成同义汉字。
   mutate(ven_reason = gsub("シカ", "鹿", ven_reason)) %>% 
   mutate(ven_reason = gsub("よい", "良い", ven_reason)) %>% 
-  mutate(ven_reason = gsub("おいしい", "美味しい", ven_reason))
+  mutate(ven_reason = gsub("おいしい", "美味しい", ven_reason)) %>% 
+  mutate(ven_reason = gsub("おいしく", "美味しく", ven_reason))
 
 # Correlation ----
 ## Vension score ~ attributes ----
@@ -73,6 +80,10 @@ kruskal.test(as.numeric(survey$ven) ~ survey$education)
 # 狩猎态度～性别。
 by(as.numeric(survey$hunting), survey$gender, shapiro.test)
 kruskal.test(as.numeric(survey$hunting) ~ survey$gender)
+# 卡方检验。
+gender_hunting_chisq <- table(survey$gender, survey$hunting)
+gender_hunting_chisq
+chisq.test(gender_hunting_chisq)
 
 # 狩猎态度～年龄组。
 by(as.numeric(survey$hunting), survey$age, shapiro.test)
@@ -102,7 +113,8 @@ jp_stop_word <- tibble(
     "amp", "ます", "です", "こと", "って", "てい", "という", "んで", "ので", 
     "なく", "など", "なる", "せん", "しま", "とか", "しょう", "ろう", "けど", 
     "さん", "あっ", "られる", "ぜひ", "てる", "なら", "思い", "思う", "れる", 
-    "たく", "なので", "ただ", "ほうが", "もの", "かも"
+    "たく", "なので", "ただ", "ほうが", "もの", "かも", "たら", "そう", 
+    "いと", "とも", "どちら", "にし", "しく", "しか", "しな", "すぎ", "ほしい"
   )
 )
 
@@ -115,13 +127,7 @@ quan_corp <- corpus(survey, text_field = "ven_reason")
 # 自定义词典。
 quan_dict <- 
   dictionary(list(
-    biodiversity = "生物 多様 性", 
-    diversity = "多様 性", 
-    global_warming = "地球 温暖 化", 
-    warming = "温暖 化", 
-    climate_change = "気候 変動", 
-    ll = "地産 地 消",
-    oa = "有機 農業"
+    not_good = "よくない"
   ))
 
 # Tokenization. 
