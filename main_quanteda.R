@@ -431,8 +431,9 @@ lss_score <-
   mutate(fit = predict(lss, newdata = quan_dtm))
 
 textplot_terms(lss, highlighted = names(topfeatures(quan_dtm, n = 15)))
-
-ggplot(lss_score, aes(ven, fit)) + 
+lss_score %>% 
+  filter(!is.na(ven)) %>% 
+  ggplot(aes(ven, fit)) + 
   geom_boxplot() + 
   geom_jitter(alpha = 0.2)
 # 漏洞：需要提取出和支持与否有关的种子词。
