@@ -445,6 +445,16 @@ lss_score %>%
 
 by(lss_score$fit, lss_score$ven, function(x) mean(x, na.rm = T))
 by(lss_score$fit, lss_score$ven, function(x) median(x, na.rm = T))
+lss_score %>% 
+  filter(!is.na(ven)) %>% 
+  group_by(ven) %>% 
+  summarise(
+    lss_mean = mean(fit, na.rm = T), 
+    lss_max = max(fit, na.rm = T), 
+    lss_min = min(fit, na.rm = T), 
+    lss_sd = sd(fit, na.rm = T), 
+    .groups = "drop"
+  )
 
 # 挑出吃肉态度较低（ven = -1）但是LSS得分高的回答；以及吃肉态度较高，但是LSS得分较低低回答。
 (
