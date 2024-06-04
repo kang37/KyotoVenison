@@ -100,8 +100,13 @@ lapply(
 )
 kruskal.test(as.numeric(survey$hunting) ~ survey$education)
 
-## Vension score ~ hunting score ----
+## Venison score ~ hunting score ----
 cor.test(as.numeric(survey$ven), as.numeric(survey$hunting))
+
+## Vension score ~ encounter deer ----
+# 吃肉态度和是否在城市里看见过鹿的关系。
+by(as.numeric(survey$ven), survey$q2, shapiro.test)
+kruskal.test(as.numeric(survey$ven) ~ as.character(survey$q2))
 
 # Text mining data ----
 # 停止词：在分词之后去除的不重要的日语词汇。
