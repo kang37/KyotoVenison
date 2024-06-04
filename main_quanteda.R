@@ -22,7 +22,7 @@ survey <-
   # select(id, gender, age, education, ven, hunting) %>% 
   # 加入Q10日语回答信息。
   left_join(
-    read.xlsx("data_raw/kyoto_vension_raw.xlsx", sheet = "Text") %>%
+    read.xlsx("data_raw/kyoto_venison_raw.xlsx", sheet = "Text") %>%
       select(id = "No.", ven_reason = "Q10") %>% 
       mutate(id = as.character(id)), 
     by = "id"
@@ -54,17 +54,26 @@ survey <-
   mutate(ven_reason = gsub("おいしく", "美味しく", ven_reason)) %>% 
   mutate(ven_reason = gsub("美味い", "美味しい", ven_reason))
 
-# Correlation ----
+# Statistic ----
+# Function to do Kruskal test for subset of survey data. 
+get_kruskal <- function(x_name, g_name) {
+  survey_sub <- survey %>% 
+    filter(!is.na({x_name}), !is.na({g_name}))
+  kruskal.test(
+    as.numeric(survey_sub[[x_name]]) ~ as.character(survey_sub[[g_name]])
+  )
+}
+
 ## Venison score ~ attributes ----
 # 吃鹿肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比。
 by(as.numeric(survey$ven), survey$gender, shapiro.test)
 # 男女组均不符合正态分布，因此用非参数方法进行组间对比。
-kruskal.test(as.numeric(survey$ven) ~ survey$gender)
+get_kruskal("ven", "gender")
 # 结论：不同性别之间吃鹿肉态度有差异。
 
 # 吃鹿肉态度～年龄组：大部分年龄组不符合正态分布，因此用非参数方法。
 by(as.numeric(survey$ven), survey$age, shapiro.test)
-kruskal.test(as.numeric(survey$ven) ~ survey$age)
+get_kruskal("ven", "age")
 
 # 吃鹿肉态度～教育水平。
 lapply(
@@ -75,12 +84,12 @@ lapply(
       shapiro.test()
   }
 )
-kruskal.test(as.numeric(survey$ven) ~ survey$education)
+get_kruskal("ven", "education")
 
 ## Hunting score ~ attributes ----
 # 狩猎态度～性别。
 by(as.numeric(survey$hunting), survey$gender, shapiro.test)
-kruskal.test(as.numeric(survey$hunting) ~ survey$gender)
+get_kruskal("hunting", "gender")
 # 卡方检验。
 gender_hunting_chisq <- table(survey$gender, survey$hunting)
 gender_hunting_chisq
@@ -88,7 +97,7 @@ chisq.test(gender_hunting_chisq)
 
 # 狩猎态度～年龄组。
 by(as.numeric(survey$hunting), survey$age, shapiro.test)
-kruskal.test(as.numeric(survey$hunting) ~ survey$age)
+get_kruskal("hunting", "age")
 
 # 狩猎态度～教育水平。
 lapply(
@@ -99,15 +108,20 @@ lapply(
       shapiro.test()
   }
 )
-kruskal.test(as.numeric(survey$hunting) ~ survey$education)
+get_kruskal("hunting", "education")
 
 ## Venison score ~ hunting score ----
 cor.test(as.numeric(survey$ven), as.numeric(survey$hunting))
 
+## Venison score ~ have land ----
+# 吃肉态度和是否有农地林地的关系。
+by(as.numeric(survey$ven), survey$q1, shapiro.test)
+get_kruskal("ven", "q1")
+
 ## Venison score ~ encounter deer ----
-# 吃肉态度和是否在城市里看见过鹿的关系。
+# 吃肉态度和是否碰到鹿的关系。
 by(as.numeric(survey$ven), survey$q2, shapiro.test)
-kruskal.test(as.numeric(survey$ven) ~ as.character(survey$q2))
+get_kruskal("ven", "q2")
 
 ## Venison score ~ deer impression ----
 # 吃肉态度和对鹿的印象的关系。
@@ -122,8 +136,7 @@ lapply(
   paste0("q7_", head(letters, 8)), 
   function(x) {
     print(x)
-    kruskal.test(as.numeric(survey$ven) ~ as.character(survey[[x]])) %>% 
-      print()
+    get_kruskal("ven", x) %>% print()
   }
 )
 
