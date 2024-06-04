@@ -51,7 +51,8 @@ survey <-
   mutate(ven_reason = gsub("シカ", "鹿", ven_reason)) %>% 
   mutate(ven_reason = gsub("よい", "良い", ven_reason)) %>% 
   mutate(ven_reason = gsub("おいしい", "美味しい", ven_reason)) %>% 
-  mutate(ven_reason = gsub("おいしく", "美味しく", ven_reason))
+  mutate(ven_reason = gsub("おいしく", "美味しく", ven_reason)) %>% 
+  mutate(ven_reason = gsub("美味い", "美味しい", ven_reason))
 
 # Correlation ----
 ## Vension score ~ attributes ----
@@ -178,7 +179,8 @@ quan_corp <- corpus(survey, text_field = "ven_reason")
 # 自定义词典。
 quan_dict <- 
   dictionary(list(
-    not_good = "よくない"
+    not_good = "よく ない", 
+    not_delicious = "美味 しく ない"
   ))
 
 # Tokenization. 
@@ -400,10 +402,10 @@ quan_id_topic %>%
 
 # Sentiment analysis ----
 # Seed words for sentiment analysis. 
-seed_word <- c(rep(1, 5), rep(-1, 5)) %>% 
+seed_word <- c(rep(1, 7), rep(-1, 6)) %>% 
   setNames(c(
-    c("恵み", "絶賛", "良い", "美味しい", "活用"), 
-    c("破壊", "危険", "心配", "被害", "怖い")
+    c("恵み", "絶賛", "良い", "美味", "活用", "美食", "美味しい"), 
+    c("破壊", "危険", "心配", "残酷", "怖い", "冒涜")
   ))
 
 # Bug: How to define context word? 
@@ -428,12 +430,37 @@ tail(coef(lss), 20)
 # Sentiment score. 
 lss_score <-  
   docvars(quan_dtm) %>% 
+  # Bug: Specify the "by" arguement. 
+  left_join(survey) %>% 
   mutate(fit = predict(lss, newdata = quan_dtm))
 
 textplot_terms(lss, highlighted = names(topfeatures(quan_dtm, n = 15)))
 lss_score %>% 
   filter(!is.na(ven)) %>% 
+  mutate(ven = factor(ven, levels = c(-2:2))) %>% 
   ggplot(aes(ven, fit)) + 
   geom_boxplot() + 
   geom_jitter(alpha = 0.2)
 # 漏洞：需要提取出和支持与否有关的种子词。
+
+# 挑出吃肉态度较低（ven = -1）但是LSS得分高的回答；以及吃肉态度较高，但是LSS得分较低低回答。
+(
+  lss_mean_ven0 <- lss_score %>% 
+    filter(ven == "0") %>% 
+    pull(fit) %>% 
+    mean()
+)
+
+lss_score %>% 
+  filter(ven == "-2") %>% 
+  arrange(-fit) %>% 
+  filter(fit > lss_mean_ven0) %>% 
+  select(id, ven, ven_reason, fit) %>% 
+  View()
+
+lss_score %>% 
+  filter(ven == "2") %>% 
+  arrange(fit) %>% 
+  filter(fit < lss_mean_ven0) %>% 
+  select(ven, ven_reason, fit) %>% 
+  View()
