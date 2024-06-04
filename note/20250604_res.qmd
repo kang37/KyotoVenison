@@ -1,0 +1,321 @@
+---
+title: "结果报告"
+author: "康"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## 1 简介
+
+主要包含3方面内容：统计分析，看各种属性、吃肉态度、狩猎态度之间的关系；主题分析，看关于吃肉的谈论中主要包含什么主题，不同吃肉态度的人更倾向于什么主题；情感分析，看不同吃肉态度的受访者是更消极还是更积极。
+
+原始数据处理方面，仅保留回答了吃肉开放问题的受访者数据。并且，将非日语文本回答改成日语，且将回答文本中一些假名换成汉字。这样可以充分利用数据集中的数据。例如，在分析性别和吃肉态度之间关系的时候，可以进一步删除性别为空以及吃肉态度为空的数据，再做分析；而分析狩猎态度和吃肉态度之间关系的时候，则在原数据基础上进一步删除狩猎态度为空，以及吃肉态度为空的数据。
+
+## 2 统计分析
+
+这部分主要进行数字型变量之间的统计分析，尤其是性别/年龄/教育水平等属性、对吃鹿肉的态度打分（以下简称"鹿肉态度"）、一些其他问题的回答、对狩猎的态度的打分（以下简称"狩猎态度"）几者之间的关系。
+
+### 2.1 鹿肉态度～属性
+
+吃鹿肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比。首先用shapiro test检验要对比的各组内数据是否为正态分布，如果p \< 0.05，则不属于正态分布。可见无论是男性组还是女性组，检测结果均显著，也就是说两者都不是正态分布。
+
+```{r}
+by(as.numeric(survey$ven), survey$gender, shapiro.test)
+# 男女组均不符合正态分布，因此用非参数方法进行组间对比。
+```
+
+因此，用非参数方法Kruskal-Wallis rank sum test进行对比。对比结果表明男女组的鹿肉态度有差异。进一步计算两组的平均数和中位数，表明男性吃鹿肉态度更高。
+
+```{r}
+get_kruskal("ven", "gender")
+survey %>% 
+  filter(!is.na(gender)) %>% 
+  group_by(gender) %>% 
+  summarise(
+    ven_mean = mean(as.numeric(ven), na.rm = T), 
+    ven_mid = median(as.numeric(ven), na.rm = T), 
+    .groups = "drop"
+  )
+```
+
+吃鹿肉态度～年龄组：大部分年龄组不符合正态分布，因此用非参数方法。结果表明不同年龄组之间无显著差异。
+
+```{r}
+by(as.numeric(survey$ven), survey$age, shapiro.test)
+get_kruskal("ven", "age")
+```
+
+吃鹿肉态度～教育水平：无显著差异。
+
+```{r}
+lapply(
+  as.character(1:4), 
+  function(x) {
+    filter(survey, education == x)$ven %>% 
+      as.numeric() %>% 
+      shapiro.test()
+  }
+)
+get_kruskal("ven", "education")
+```
+
+### 2.2 狩猎态度～属性
+
+狩猎态度～性别：男女有显著差异。
+
+狩猎态度～年龄组：不同年龄有显著差异。总体而言，年龄大点儿的受访者态度更高。如果需要的话，可以做两两对比分析。
+
+狩猎态度～教育水平：无显著差异。
+
+```{r}
+# 狩猎态度～性别。
+by(as.numeric(survey$hunting), survey$gender, shapiro.test)
+get_kruskal("hunting", "gender")
+
+# 狩猎态度～年龄组。
+by(as.numeric(survey$hunting), survey$age, shapiro.test)
+get_kruskal("hunting", "age")
+
+# 狩猎态度～教育水平。
+lapply(
+  as.character(1:4), 
+  function(x) {
+    filter(survey, education == x)$hunting %>% 
+      as.numeric() %>% 
+      shapiro.test()
+  }
+)
+get_kruskal("hunting", "education")
+```
+
+此处补充一下之前的一个疑问：狩猎态度～性别的卡方检验是否并不显著？根据我的计算，是显著的。首先我们做出吃肉得分分性别的列联表如下：
+
+```{r}
+# 卡方检验。
+gender_hunting_chisq <- table(survey$gender, survey$hunting)
+gender_hunting_chisq
+```
+
+然后做卡方分析，结果显著：
+
+```{r}
+chisq.test(gender_hunting_chisq)
+```
+
+### 2.3 鹿肉态度～狩猎态度
+
+Pearson相关性和Spearman相关性分析都表明，两者显著正相关。不过通常计算一种相关系数就够了。
+
+```{r}
+cor.test(as.numeric(survey$ven), as.numeric(survey$hunting), method = "pearson")
+cor.test(as.numeric(survey$ven), as.numeric(survey$hunting), method = "spearman")
+```
+
+### 2.4 其他
+
+吃肉态度和是否有农地林地的关系：
+
+```{r}
+by(as.numeric(survey$ven), survey$q1, shapiro.test)
+get_kruskal("ven", "q1")
+```
+
+吃肉态度和是否碰到鹿的关系：
+
+```{r}
+by(as.numeric(survey$ven), survey$q2, shapiro.test)
+get_kruskal("ven", "q2")
+```
+
+吃肉态度和对鹿的印象的关系：各个选项分开看，例如第二个印象选项是\"神圣\"，我们就看选择了这个选项的人和不选择这个选项的人有什么差别。下面是各个选项的检测结果（可能有重复，不好意思），**有点意思**：q7_b（\"神聖\"）、q7_e（\"残酷\"）和q7_f（\"可愛い\"）的p值显著。
+
+```{r}
+lapply(
+  paste0("q7_", head(letters, 8)), 
+  function(x) {
+    print(x)
+    get_kruskal("ven", x) %>% print()
+  }
+)
+```
+
+进一步查看这些显著的选项，对于每个检测，我都查看了选择与否的人数、选择与否的人打分所占比例、选择与否的人的平均打分和打分中位数。可见选择了\"神聖\"的人在利用鹿肉的态度上更加消极，选择了\"残酷\"的人在利用鹿肉的态度上也更加消极，类似地，选择了\"可愛い\"的人在利用鹿肉的态度上也更加消极。可能心理机制不太一样？
+
+```{r}
+table(survey$q7_b)
+survey %>% 
+  filter(!is.na(ven)) %>% 
+  group_by(q7_b, ven) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(q7_b, n, fill = ven), position = "fill")
+by(as.numeric(survey$ven), survey$q7_b, function(x) median(x, na.rm = T))
+by(as.numeric(survey$ven), survey$q7_b, function(x) mean(x, na.rm = T))
+
+table(survey$q7_e)
+survey %>% 
+  filter(!is.na(ven)) %>% 
+  group_by(q7_e, ven) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(q7_e, n, fill = ven), position = "fill")
+by(as.numeric(survey$ven), survey$q7_e, function(x) median(x, na.rm = T))
+by(as.numeric(survey$ven), survey$q7_e, function(x) mean(x, na.rm = T))
+
+table(survey$q7_f)
+survey %>% 
+  filter(!is.na(ven)) %>% 
+  group_by(q7_f, ven) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot() + 
+  geom_col(aes(q7_f, n, fill = ven), position = "fill")
+by(as.numeric(survey$ven), survey$q7_f, function(x) median(x, na.rm = T))
+by(as.numeric(survey$ven), survey$q7_f, function(x) mean(x, na.rm = T))
+```
+
+## 3 主题分析
+
+具体方法参见之前的报告。在更新后的结果中，文本被分成6个主题。这6个主题的高频关键词是：
+
+```{r}
+library(knitr)
+library(kableExtra)
+tidy(quan_lda, matrix = "beta") %>% 
+  group_by(topic) %>% 
+  slice_max(beta, n = 15) %>% 
+  mutate(term = reorder_within(term, beta, topic)) %>% 
+  summarise(term = list(term), .groups = "drop") %>% 
+  mutate(
+    term = unlist(lapply(term, function(x) paste0(x, collapse = ", ")))
+  ) %>% 
+  mutate(term = gsub("_", "", term), term = gsub("[0-9]", "", term)) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+各主题的典型文本如下：
+
+```{r}
+quan_id_topic %>% 
+  group_by(topic) %>% 
+  arrange(topic, -gamma) %>% 
+  slice_head(n = 10) %>% 
+  ungroup() %>% 
+  # 漏洞：需要提前更改id的类型。
+  left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
+  select(id, topic, ven_reason) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+ChatGPT解读：对于每个主题，将各文本放进GPT，并且询问"请总结下面这些言论的主题，请将回答限制在100字以内：\[空一行接上排名前10位的典型文本\]"。例如，如果要知道主题1的含义，就输入以下信息：
+
+```         
+请总结下面这些言论的主题，请将回答限制在100字以内：
+
+ウシや豚と同様食べられるならありがたくいただくべきだと思うから。（動物の種類で区別するべきでない）
+鹿の肉は他のジビエと違い菌が多いと聞いたから
+理由はありません。鹿の肉も牛や豚、鶏と同じです。
+狩猟者高齢化による減少の背景の中、ジビエ活用若い狩猟者が増えることを期待します。
+自然界の回りだから。食べたり、食べられたり。
+牛、豚、鳥、イノシシなどの動物と同様と思うから
+他の動物を食べているのに鹿を食べない理由がない
+本当は食利用したくありません。害を与えていると認識するのであれば利用しても良いと思います。慰霊することも忘れてはいけないと思っております。
+どうしてもウシや鶏の味に負けてしまいそうなので
+牛も豚も食べているから。イノシシも鶏もです。
+```
+
+得到的回答如下。这样总结是不是有点短？可以考虑将字数增加到150字。
+
+**主题1：**这些言论的主要主题是对食用鹿肉的看法。一些人认为鹿肉应与其他肉类一样被接受和利用，而另一些人则担心鹿肉的安全性或味道。此外，有人希望通过利用鹿肉促进年轻狩猎者的增加。
+
+**主题2：**这些言论的主题主要围绕鹿肉的合理利用。与其无意义地杀生，不如将鹿肉用于宠物食品或动物园的食物，同时表达了对生命的尊重和感恩。
+
+**主题3：**这些言论的主题主要围绕过多鹿群的管理和利用。强调通过合理利用鹿肉和鹿皮来减少无益的杀生，降低环境负荷，促进生态平衡，同时考虑到鹿的生活和生存权利。
+
+**主题4：**这些言论的主题围绕鹿肉的利用，强调其营养价值高且美味。讨论了合理管理鹿群、避免过度杀生的重要性，并提到通过捕猎和食用鹿肉来维持生态平衡和资源有效利用。
+
+**主题5：**这些言论的主题主要围绕对鹿肉的安全性、成本效益和伦理问题的讨论。一些人担心人类破坏自然导致生态失衡，强调应该谨慎处理和利用鹿肉，而不是随意捕杀。也有人对鹿肉的寄生虫、疾病等安全问题表示担忧，并对食用鹿肉持保留态度。
+
+**主题6：**这些言论的主题主要围绕对鹿肉的个人态度和伦理困惑。一些人不愿食用鹿肉，认为缺乏动机或不习惯，而另一些人则认为鹿肉美味且健康，但对捕杀鹿有道德上的纠结。有些人支持利用鹿肉以减少浪费并促进地域活性化。
+
+## 4 情感分析
+
+所谓"情感分析（sentiment analysis）"，根据我一个做文本分析程序开发的朋友的说法，并不是很严格的概念，尤其是只把情绪分成"积极"和"消极"的时候：因为情感是很多维度的概念。相比于"情感分析"，说"极性"可能更加合理，比如说在"开心不开心"的维度上，可以将文本分到开心的和不开心的两端（以及它们中间的不那么开心的、中性的等等）。但是遵循传统，我们此处沿用"情感分析"一词。
+
+在这个情感分析中，我们使用LSS（Latent Semantic Scaling）方法：（1）选择一系列积极的种子词汇和消极的种子词汇，这些词汇将构成我们的"积极-消极情绪空间"的坐标；（2）简单来说，衡量其他词汇和这些积极/消极词汇的距离，和积极词汇的距离越近，词语的得分也就越正面；（3）文本的积极或消极就取决于所含词汇在这个情绪空间中的位置。
+
+我选择的积极词汇和消极词汇如下：
+
+```{r}
+seed_word %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+在这个情绪空间内，其他词汇的得分和词汇频率如下图。
+
+```{r}
+textplot_terms(lss, highlighted = names(topfeatures(quan_dtm, n = 15)))
+```
+
+得分最高（积极）的词汇和最低的词汇如下：
+
+```{r}
+head(coef(lss), 20)
+tail(coef(lss), 20)
+```
+
+可以看出不同吃肉态度的人的情绪得分：
+
+```{r}
+ggplot(lss_score, aes(ven, fit)) + 
+  geom_boxplot() + 
+  geom_jitter(alpha = 0.2)
+```
+
+我计算了一下各个组的平均得分和得分中位数，结果如下。可见在该结果中，整体估分是偏低的，比如中性的\"0\"分组的LSS平均分是-0.23；但是相对分数是没有问题的：\"-2\"组最低，\"2\"组最高。另外还可以发现，从LSS得分的标准差而言，两头（-2或2组）最高，而中间较低，可能意味着极度支持或极度反对的人的观点差异更大，而中立点的人观点倾向更加一致。
+
+```{r}
+lss_score %>% 
+  filter(!is.na(ven)) %>% 
+  group_by(ven) %>% 
+  summarise(
+    lss_mean = mean(fit, na.rm = T), 
+    lss_max = max(fit, na.rm = T), 
+    lss_min = min(fit, na.rm = T), 
+    lss_sd = sd(fit, na.rm = T), 
+    .groups = "drop"
+  ) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+按照上次讨论，我挑出了自我打分为-2，但是LSS分析得分却相对积极的人；以及自我打分为2，但是LSS分析得分却相对消极的人。但是结果似乎没有太大参考价值。
+
+首先是自我打分为-2，但是LSS分析得分却相对积极的人。第一条就是没什么理由的，该受访者明明说\"好吃\"，但是却打了个\"-2\"分，可能是理解错误，当然也可以核对一下数据看看有没有问题；第二个则是方法本身的局限，因为该受访者的话中出现了\"良い\"，所以被判断为积极，但是实际上这个\"良い\"后面紧跟了个\"思えない\"，所以它实际上是否定的，只是在我们的方法中无法判读出来。
+
+```{r}
+lss_score %>% 
+  filter(ven == "-2") %>% 
+  arrange(-fit) %>% 
+  filter(fit > lss_mean_ven0) %>% 
+  select(id, ven, ven_reason, fit) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+其次是以及自我打分为2，但是LSS分析得分却相对消极的人。不知为何这些的LSS会得负分。
+
+```{r}
+lss_score %>% 
+  filter(ven == "2") %>% 
+  arrange(fit) %>% 
+  filter(fit < lss_mean_ven0) %>% 
+  select(ven, ven_reason, fit) %>% 
+  head(10) %>% 
+  kable() %>% 
+  kable_styling()
+```

@@ -141,6 +141,7 @@ lapply(
 )
 
 # 如果有显著差异，则进一步分析。
+table(survey$q7_b)
 survey %>% 
   filter(!is.na(ven)) %>% 
   group_by(q7_b, ven) %>% 
@@ -150,6 +151,7 @@ survey %>%
 by(as.numeric(survey$ven), survey$q7_b, function(x) median(x, na.rm = T))
 by(as.numeric(survey$ven), survey$q7_b, function(x) mean(x, na.rm = T))
 
+table(survey$q7_e)
 survey %>% 
   filter(!is.na(ven)) %>% 
   group_by(q7_e, ven) %>% 
@@ -159,6 +161,7 @@ survey %>%
 by(as.numeric(survey$ven), survey$q7_e, function(x) median(x, na.rm = T))
 by(as.numeric(survey$ven), survey$q7_e, function(x) mean(x, na.rm = T))
 
+table(survey$q7_f)
 survey %>% 
   filter(!is.na(ven)) %>% 
   group_by(q7_f, ven) %>% 
@@ -489,4 +492,5 @@ lss_score %>%
   arrange(fit) %>% 
   filter(fit < lss_mean_ven0) %>% 
   select(ven, ven_reason, fit) %>% 
+  head(10) %>% 
   View()
