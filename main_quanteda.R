@@ -432,16 +432,19 @@ lss_score <-
   docvars(quan_dtm) %>% 
   # Bug: Specify the "by" arguement. 
   left_join(survey) %>% 
-  mutate(fit = predict(lss, newdata = quan_dtm))
+  mutate(fit = predict(lss, newdata = quan_dtm)) %>% 
+  mutate(ven = factor(ven, levels = c(-2:2)))
 
 textplot_terms(lss, highlighted = names(topfeatures(quan_dtm, n = 15)))
 lss_score %>% 
   filter(!is.na(ven)) %>% 
-  mutate(ven = factor(ven, levels = c(-2:2))) %>% 
   ggplot(aes(ven, fit)) + 
   geom_boxplot() + 
   geom_jitter(alpha = 0.2)
 # 漏洞：需要提取出和支持与否有关的种子词。
+
+by(lss_score$fit, lss_score$ven, function(x) mean(x, na.rm = T))
+by(lss_score$fit, lss_score$ven, function(x) median(x, na.rm = T))
 
 # 挑出吃肉态度较低（ven = -1）但是LSS得分高的回答；以及吃肉态度较高，但是LSS得分较低低回答。
 (
