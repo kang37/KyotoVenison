@@ -327,25 +327,33 @@ quan_id_topic %>%
 
 # 转化成可阅读的主题数据，并取每个主题的前几位关键词。
 # 漏洞：需要再增加停止词，并且统一日语词汇如“鹿”和“しか”。
-tidy(quan_lda, matrix = "beta") %>% 
-  group_by(topic) %>% 
-  slice_max(beta, n = 15) %>% 
-  mutate(term = reorder_within(term, beta, topic)) %>% 
-  summarise(term = list(term), .groups = "drop") %>% 
-  mutate(
-    term = unlist(lapply(term, function(x) paste0(x, collapse = ", ")))
-  ) %>% 
-  mutate(term = gsub("_", "", term), term = gsub("[0-9]", "", term))
+(
+  topic_word <- tidy(quan_lda, matrix = "beta") %>% 
+    group_by(topic) %>% 
+    slice_max(beta, n = 15) %>% 
+    mutate(term = reorder_within(term, beta, topic)) %>% 
+    summarise(term = list(term), .groups = "drop") %>% 
+    mutate(
+      term = unlist(lapply(term, function(x) paste0(x, collapse = ", ")))
+    ) %>% 
+    mutate(term = gsub("_", "", term), term = gsub("[0-9]", "", term))
+)
+# 导出结果。
+# write.xlsx(topic_word, "data_proc/topic_word.xlsx")
 
 # 抽出和各个主题匹配度最高的前10条回答，解读各个主题的含义。
-quan_id_topic %>% 
-  group_by(topic) %>% 
-  arrange(topic, -gamma) %>% 
-  slice_head(n = 10) %>% 
-  ungroup() %>% 
-  # 漏洞：需要提前更改id的类型。
-  left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
-  select(id, topic, ven_reason) 
+(
+  topic_text <- quan_id_topic %>% 
+    group_by(topic) %>% 
+    arrange(topic, -gamma) %>% 
+    # slice_head(n = 10) %>% 
+    ungroup() %>% 
+    # 漏洞：需要提前更改id的类型。
+    left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
+    select(id, topic, gamma, ven_reason) 
+)
+# 导出结果。
+# write.xlsx(topic_text, "data_proc/topic_text.xlsx")
 
 ## Score ~ topic ----
 # 对狩猎的态度和对食用鹿肉的态度之间的关系。
@@ -457,7 +465,7 @@ lss_score %>%
   geom_boxplot() + 
   # geom_jitter(alpha = 0.2) + 
   theme_bw() + 
-  labs(y = "Fitted LSS score")
+  labs(x = "Urban residents‘ attitude towards venison ", y = "LSS score")
 # 漏洞：需要提取出和支持与否有关的种子词。
 
 by(lss_score$fit, lss_score$ven, function(x) mean(x, na.rm = T))
