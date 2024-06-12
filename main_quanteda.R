@@ -37,8 +37,8 @@ survey <-
   #   !is.na(ven_reason), !is.na(ven), !is.na(hunting), 
   #   !is.na(gender), gender != 2, !is.na(age)
   # ) %>% 
-  # 删除不符合要求的回答。383号受访者的回答是“わからない”。725号的回答是“Don't have any information about it .so,I can't say”。
-  filter(id != "383", id != "725") %>% 
+  # 删除不符合要求的回答。383号受访者的回答是“わからない”。725号的回答是“Don't have any information about it .so,I can't say”。删除454号受访者的吃肉态度和回答，因为它们相互冲突：他的吃肉态度为-2，但是回答是“美味しい”。
+  filter(id != "383", id != "725", id != "454") %>% 
   # 将部分非日文文本翻译成日文。食用ChatGPT 3.5进行翻译，指令为“Translate the text to Japanese: [text]”。
   mutate(ven_reason = case_when(
     ven_reason == "没有这个习惯…像是要吃狗肉一样不舒服" ~ 
@@ -52,7 +52,13 @@ survey <-
   mutate(ven_reason = gsub("よい", "良い", ven_reason)) %>% 
   mutate(ven_reason = gsub("おいしい", "美味しい", ven_reason)) %>% 
   mutate(ven_reason = gsub("おいしく", "美味しく", ven_reason)) %>% 
-  mutate(ven_reason = gsub("美味い", "美味しい", ven_reason))
+  mutate(ven_reason = gsub("美味い", "美味しい", ven_reason)) %>% 
+  cbind(
+    ., 
+    sapply(head(letters, 8), function(letter) grepl(letter, .$q7)) %>% 
+      as.data.frame() %>% 
+      rename_with(~ paste0("q7_", .))
+  )
 
 # Statistic ----
 # Function to do Kruskal test for subset of survey data. 
@@ -125,13 +131,6 @@ get_kruskal("ven", "q2")
 
 ## Venison score ~ deer impression ----
 # 吃肉态度和对鹿的印象的关系。
-survey <- cbind(
-  survey, 
-  sapply(head(letters, 8), function(letter) grepl(letter, survey$q7)) %>% 
-    as.data.frame() %>% 
-    rename_with(~ paste0("q7_", .))
-)
-
 lapply(
   paste0("q7_", head(letters, 8)), 
   function(x) {
@@ -456,7 +455,9 @@ lss_score %>%
   filter(!is.na(ven)) %>% 
   ggplot(aes(ven, fit)) + 
   geom_boxplot() + 
-  geom_jitter(alpha = 0.2)
+  # geom_jitter(alpha = 0.2) + 
+  theme_bw() + 
+  labs(y = "Fitted LSS score")
 # 漏洞：需要提取出和支持与否有关的种子词。
 
 by(lss_score$fit, lss_score$ven, function(x) mean(x, na.rm = T))
