@@ -39,7 +39,7 @@ survey <-
   # ) %>% 
   # 删除不符合要求的回答。383号受访者的回答是“わからない”。725号的回答是“Don't have any information about it .so,I can't say”。删除454号受访者的吃肉态度和回答，因为它们相互冲突：他的吃肉态度为-2，但是回答是“美味しい”。
   filter(id != "383", id != "725", id != "454") %>% 
-  # 将部分非日文文本翻译成日文。食用ChatGPT 3.5进行翻译，指令为“Translate the text to Japanese: [text]”。
+  # 将部分非日文文本翻译成日文。用ChatGPT 3.5进行翻译，指令为“Translate the text to Japanese: [text]”。
   mutate(ven_reason = case_when(
     ven_reason == "没有这个习惯…像是要吃狗肉一样不舒服" ~ 
       "この習慣がないから…犬の肉を食べるみたいに気持ち悪い", 
