@@ -76,6 +76,8 @@ by(as.numeric(survey$ven), survey$gender, shapiro.test)
 # 男女组均不符合正态分布，因此用非参数方法进行组间对比。
 get_kruskal("ven", "gender")
 # 结论：不同性别之间吃鹿肉态度有差异。
+by(as.numeric(survey$ven), survey$gender, function(x) mean(x, na.rm = TRUE))
+by(as.numeric(survey$ven), survey$gender, function(x) median(x, na.rm = TRUE))
 
 # 吃鹿肉态度～年龄组：大部分年龄组不符合正态分布，因此用非参数方法。
 by(as.numeric(survey$ven), survey$age, shapiro.test)
@@ -180,7 +182,7 @@ jp_stop_word <- tibble(
     "amp", "ます", "です", "こと", "って", "てい", "という", "んで", "ので", 
     "なく", "など", "なる", "せん", "しま", "とか", "しょう", "ろう", "けど", 
     "さん", "あっ", "られる", "ぜひ", "てる", "なら", "思い", "思う", "れる", 
-    "たく", "なので", "ただ", "ほうが", "もの", "かも", "たら", "そう", 
+    "たく", "なので", "ただ", "ほうが", "もの", "かも", "たら", "そう", " ",
     "いと", "とも", "どちら", "にし", "しく", "しか", "しな", "すぎ", "ほしい"
   )
 )
@@ -276,7 +278,7 @@ quan_id_topic_test %>%
   summarise(gini = Gini(gamma), .groups = "drop") %>% 
   mutate(k = factor(k, levels = as.character(range_k))) %>% 
   ggplot() + 
-  geom_boxplot(aes(k, gini)) + 
+  geom_boxplot(aes(k, gini), alpha = 0.5) + 
   theme_bw() + 
   labs(x = "Topic number", y = "Gini")
 
@@ -329,6 +331,8 @@ quan_id_topic %>%
 # 漏洞：需要再增加停止词，并且统一日语词汇如“鹿”和“しか”。
 (
   topic_word <- tidy(quan_lda, matrix = "beta") %>% 
+    # Bug: Why there are empty term?
+    filter(term != "") %>% 
     group_by(topic) %>% 
     slice_max(beta, n = 15) %>% 
     mutate(term = reorder_within(term, beta, topic)) %>% 
@@ -453,7 +457,7 @@ tail(coef(lss), 20)
 # Sentiment score. 
 lss_score <-  
   docvars(quan_dtm) %>% 
-  # Bug: Specify the "by" arguement. 
+  # Bug: Specify the "by" argument. 
   left_join(survey) %>% 
   mutate(fit = predict(lss, newdata = quan_dtm)) %>% 
   mutate(ven = factor(ven, levels = c(-2:2)))
