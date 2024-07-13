@@ -53,6 +53,10 @@ survey <-
   mutate(ven_reason = gsub("おいしい", "美味しい", ven_reason)) %>% 
   mutate(ven_reason = gsub("おいしく", "美味しく", ven_reason)) %>% 
   mutate(ven_reason = gsub("美味い", "美味しい", ven_reason)) %>% 
+  mutate(ven_reason = gsub("おいしかった", "美味しい", ven_reason)) %>% 
+  # 将一些过去时换成现在时。
+  mutate(ven_reason = gsub("食べた", "食べる", ven_reason)) %>% 
+  # 拆分Q7:对鹿的印象。
   cbind(
     ., 
     sapply(head(letters, 8), function(letter) grepl(letter, .$q7)) %>% 
@@ -183,7 +187,8 @@ jp_stop_word <- tibble(
     "なく", "など", "なる", "せん", "しま", "とか", "しょう", "ろう", "けど", 
     "さん", "あっ", "られる", "ぜひ", "てる", "なら", "思い", "思う", "れる", 
     "たく", "なので", "ただ", "ほうが", "もの", "かも", "たら", "そう", " ",
-    "いと", "とも", "どちら", "にし", "しく", "しか", "しな", "すぎ", "ほしい"
+    "いと", "とも", "どちら", "にし", "しく", "しか", "しな", "すぎ", "ほしい", 
+    "おい", "なか"
   )
 )
 
@@ -343,7 +348,10 @@ quan_id_topic %>%
     mutate(term = gsub("_", "", term), term = gsub("[0-9]", "", term))
 )
 # 导出结果。
-# write.xlsx(topic_word, "data_proc/topic_word.xlsx")
+write.xlsx(
+  topic_word, 
+  paste0("data_proc/topic_word_", format(Sys.Date(), "%Y%m%d"), ".xlsx")
+)
 
 # 抽出和各个主题匹配度最高的前10条回答，解读各个主题的含义。
 (
@@ -357,7 +365,10 @@ quan_id_topic %>%
     select(id, topic, gamma, ven_reason) 
 )
 # 导出结果。
-# write.xlsx(topic_text, "data_proc/topic_text.xlsx")
+write.xlsx(
+  topic_text, 
+  paste0("data_proc/topic_text_", format(Sys.Date(), "%Y%m%d"), ".xlsx")
+)
 
 ## Score ~ topic ----
 # 对狩猎的态度和对食用鹿肉的态度之间的关系。
