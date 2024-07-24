@@ -370,41 +370,42 @@ write.xlsx(
   paste0("data_proc/topic_text_", format(Sys.Date(), "%Y%m%d"), ".xlsx")
 )
 
-## Score ~ topic ----
+## Hunting & ven core ~ topic ----
 # 对狩猎的态度和对食用鹿肉的态度之间的关系。
 survey %>% 
+  filter(!is.na(ven), !is.na(hunting)) %>% 
   group_by(ven, hunting) %>% 
   summarise(n = n(), .groups = "drop") %>% 
+  mutate(ven = factor(ven, levels = -2:2)) %>% 
   ggplot() + 
-  geom_col(aes(hunting, n, fill = ven), position = "fill")
-# 漏洞：注意：极度反感狩猎和极度喜欢狩猎的人都比较支持食用鹿肉，为什么呢？
+  geom_col(aes(hunting, n, fill = ven), position = "fill") + 
+  scale_fill_manual(
+    breaks = -2:2, 
+    values = c("#e2e1ec", "#ced7e5", "#d6cbda", "#f9ebd3", "#f5cbcc")
+  ) + 
+  theme_bw() + 
+  labs(
+    x = "Attitudes toward hunting", y = "Percentage", 
+    fill = "Attitudes\ntoward\nvenison"
+  ) 
 
 # 食用鹿肉打分和主题的关系。
-# 从两个角度看主题和得分的关系。
 quan_id_topic %>% 
   left_join(select(survey, id, ven), by = "id") %>% 
-  # 漏洞：应该早点把383号删除。
-  filter(id != "383") %>% 
   group_by(ven, topic) %>% 
   summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  filter(!is.na(ven)) %>% 
   ggplot() + 
   geom_col(aes(ven, gamma, fill = as.character(topic)), position = "fill") + 
   theme_bw() + 
-  scale_fill_d3() + 
-  labs(x = "Ven", y = "Proportion", fill = "Topic") +
-  theme(axis.text.x = element_text(angle = 90))
-
-quan_id_topic %>% 
-  left_join(select(survey, id, ven), by = "id") %>% 
-  # 漏洞：应该早点把383号删除。
-  filter(id != "383") %>% 
-  group_by(ven, topic) %>% 
-  summarise(gamma = sum(gamma), .groups = "drop") %>% 
-  ggplot() + 
-  geom_col(aes(topic, gamma, fill = as.character(ven)), position = "fill") + 
-  theme_bw() + 
-  scale_fill_d3() + 
-  labs(x = "Topic", y = "Proportion", fill = "Ven") +
+  scale_fill_manual(
+    breaks = 1:6, 
+    values = c("#d6cbda", "#c9e0e5", "#bed2c6", "#ffd19d", "#feb29b", "#ed8687")
+  ) + 
+  labs(
+    x = "Public attitudes toward venison", y = "Percentage", 
+    fill = "Topics\nabout\nvenison"
+  ) +
   theme(axis.text.x = element_text(angle = 90))
 
 # 对狩猎的态度和主题的关系。
@@ -418,24 +419,14 @@ quan_id_topic %>%
   geom_col(
     aes(hunting, gamma, fill = as.character(topic)), position = "fill"
   ) + 
-  theme_bw() + 
-  scale_fill_d3() + 
-  labs(x = "Hunting", y = "Proportion", fill = "Topic") +
-  theme(axis.text.x = element_text(angle = 90))
-
-quan_id_topic %>% 
-  left_join(select(survey, id, hunting), by = "id") %>% 
-  # 漏洞：应该早点把383号删除。
-  filter(id != "383") %>% 
-  group_by(hunting, topic) %>% 
-  summarise(gamma = sum(gamma), .groups = "drop") %>% 
-  ggplot() + 
-  geom_col(
-    aes(topic, gamma, fill = as.character(hunting)), position = "fill"
+  scale_fill_manual(
+    breaks = 1:6, 
+    values = c("#d6cbda", "#c9e0e5", "#bed2c6", "#ffd19d", "#feb29b", "#ed8687")
   ) + 
   theme_bw() + 
-  scale_fill_d3() + 
-  labs(x = "Topic", y = "Proportion", fill = "Hunting") +
+  labs(
+    x = "Public attitudes towards hunting", y = "Percentage", fill = "Topic"
+  ) +
   theme(axis.text.x = element_text(angle = 90))
 
 # Sentiment analysis ----
