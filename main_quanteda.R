@@ -381,7 +381,7 @@ survey %>%
   geom_col(aes(hunting, n, fill = ven), position = "fill") + 
   scale_fill_manual(
     breaks = -2:2, 
-    values = c("#e2e1ec", "#ced7e5", "#d6cbda", "#f9ebd3", "#f5cbcc")
+    values = c("#e2e1ec", "#ced7e5", "#d7d9c9", "#f9ebd3", "#f5cbcc")
   ) + 
   theme_bw() + 
   labs(
