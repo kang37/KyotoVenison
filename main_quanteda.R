@@ -98,33 +98,6 @@ lapply(
 )
 get_kruskal("ven", "education")
 
-## Hunting score ~ attributes ----
-# 狩猎态度～性别。
-by(as.numeric(survey$hunting), survey$gender, shapiro.test)
-get_kruskal("hunting", "gender")
-# 卡方检验。
-gender_hunting_chisq <- table(survey$gender, survey$hunting)
-gender_hunting_chisq
-chisq.test(gender_hunting_chisq)
-
-# 狩猎态度～年龄组。
-by(as.numeric(survey$hunting), survey$age, shapiro.test)
-get_kruskal("hunting", "age")
-
-# 狩猎态度～教育水平。
-lapply(
-  as.character(1:4), 
-  function(x) {
-    filter(survey, education == x)$hunting %>% 
-      as.numeric() %>% 
-      shapiro.test()
-  }
-)
-get_kruskal("hunting", "education")
-
-## Venison score ~ hunting score ----
-cor.test(as.numeric(survey$ven), as.numeric(survey$hunting))
-
 ## Venison score ~ have land ----
 # 吃肉态度和是否有农地林地的关系。
 by(as.numeric(survey$ven), survey$q1, shapiro.test)
@@ -175,6 +148,33 @@ survey %>%
   geom_col(aes(q7_f, n, fill = ven), position = "fill")
 by(as.numeric(survey$ven), survey$q7_f, function(x) median(x, na.rm = T))
 by(as.numeric(survey$ven), survey$q7_f, function(x) mean(x, na.rm = T))
+
+## Hunting score ~ attributes ----
+# 狩猎态度～性别。
+by(as.numeric(survey$hunting), survey$gender, shapiro.test)
+get_kruskal("hunting", "gender")
+# 卡方检验。
+gender_hunting_chisq <- table(survey$gender, survey$hunting)
+gender_hunting_chisq
+chisq.test(gender_hunting_chisq)
+
+# 狩猎态度～年龄组。
+by(as.numeric(survey$hunting), survey$age, shapiro.test)
+get_kruskal("hunting", "age")
+
+# 狩猎态度～教育水平。
+lapply(
+  as.character(1:4), 
+  function(x) {
+    filter(survey, education == x)$hunting %>% 
+      as.numeric() %>% 
+      shapiro.test()
+  }
+)
+get_kruskal("hunting", "education")
+
+## Venison score ~ hunting score ----
+cor.test(as.numeric(survey$ven), as.numeric(survey$hunting))
 
 # Text mining data ----
 # 停止词：在分词之后去除的不重要的日语词汇。
