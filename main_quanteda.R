@@ -188,7 +188,7 @@ jp_stop_word <- tibble(
     "さん", "あっ", "られる", "ぜひ", "てる", "なら", "思い", "思う", "れる", 
     "たく", "なので", "ただ", "ほうが", "もの", "かも", "たら", "そう", " ",
     "いと", "とも", "どちら", "にし", "しく", "しか", "しな", "すぎ", "ほしい", 
-    "おい", "なか"
+    "おい", "なか", "思"
   )
 )
 
@@ -372,6 +372,10 @@ write.xlsx(
 
 ## Hunting & ven core ~ topic ----
 # 对狩猎的态度和对食用鹿肉的态度之间的关系。
+png(
+  paste0("data_proc/column_hunt_ven_", format(Sys.Date(), "%Y%m%d"), ".png"), 
+  width = 1200, height = 800, res = 300
+)
 survey %>% 
   filter(!is.na(ven), !is.na(hunting)) %>% 
   group_by(ven, hunting) %>% 
@@ -388,13 +392,19 @@ survey %>%
     x = "Attitudes toward hunting", y = "Percentage", 
     fill = "Attitudes\ntoward\nvenison"
   ) 
+dev.off()
 
 # 食用鹿肉打分和主题的关系。
+png(
+  paste0("data_proc/column_ven_topic_", format(Sys.Date(), "%Y%m%d"), ".png"), 
+  width = 1200, height = 800, res = 300
+)
 quan_id_topic %>% 
   left_join(select(survey, id, ven), by = "id") %>% 
   group_by(ven, topic) %>% 
   summarise(gamma = sum(gamma), .groups = "drop") %>% 
   filter(!is.na(ven)) %>% 
+  mutate(ven = factor(ven, levels = c("-2", "-1", "0", "1", "2"))) %>% 
   ggplot() + 
   geom_col(aes(ven, gamma, fill = as.character(topic)), position = "fill") + 
   theme_bw() + 
@@ -407,6 +417,7 @@ quan_id_topic %>%
     fill = "Topics\nabout\nvenison"
   ) +
   theme(axis.text.x = element_text(angle = 90))
+dev.off()
 
 # 对狩猎的态度和主题的关系。
 quan_id_topic %>% 
