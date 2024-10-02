@@ -69,8 +69,26 @@ survey <-
 get_kruskal <- function(x_name, g_name) {
   survey_sub <- survey %>% 
     filter(!is.na({x_name}), !is.na({g_name}))
-  kruskal.test(
+  smp_size <- nrow(survey_sub)
+  stat_res <- kruskal.test(
     as.numeric(survey_sub[[x_name]]) ~ as.character(survey_sub[[g_name]])
+  )
+  return(
+    c(smp_size, stat_res$statistic, stat_res$p.value) %>% 
+      setNames(c("smp_size", "h", "p"))
+  )
+}
+
+get_wilcox <- function(x_name, g_name) {
+  survey_sub <- survey %>% 
+    filter(!is.na({x_name}), !is.na({g_name}))
+  smp_size <- nrow(survey_sub)
+  stat_res <- wilcox.test(
+    as.numeric(survey_sub[[x_name]]) ~ as.character(survey_sub[[g_name]])
+  )
+  return(
+    c(smp_size, stat_res$statistic, stat_res$p.value) %>% 
+      setNames(c("smp_size", "w", "p"))
   )
 }
 
@@ -78,10 +96,8 @@ get_kruskal <- function(x_name, g_name) {
 # 吃鹿肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比。
 by(as.numeric(survey$ven), survey$gender, shapiro.test)
 # 男女组均不符合正态分布，因此用非参数方法进行组间对比。
-get_kruskal("ven", "gender")
+get_wilcox("ven", "gender")
 # 结论：不同性别之间吃鹿肉态度有差异。
-by(as.numeric(survey$ven), survey$gender, function(x) mean(x, na.rm = TRUE))
-by(as.numeric(survey$ven), survey$gender, function(x) median(x, na.rm = TRUE))
 
 # 吃鹿肉态度～年龄组：大部分年龄组不符合正态分布，因此用非参数方法。
 by(as.numeric(survey$ven), survey$age, shapiro.test)
@@ -106,7 +122,7 @@ get_kruskal("ven", "q1")
 ## Venison score ~ encounter deer ----
 # 吃肉态度和是否碰到鹿的关系。
 by(as.numeric(survey$ven), survey$q2, shapiro.test)
-get_kruskal("ven", "q2")
+get_wilcox("ven", "q2")
 
 ## Venison score ~ deer impression ----
 # 吃肉态度和对鹿的印象的关系。
@@ -114,7 +130,7 @@ lapply(
   paste0("q7_", head(letters, 8)), 
   function(x) {
     print(x)
-    get_kruskal("ven", x) %>% print()
+    get_wilcox("ven", x) %>% print()
   }
 )
 

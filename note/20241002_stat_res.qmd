@@ -1,0 +1,45 @@
+---
+title: "组间对比结果报告"
+author: "康杰锋"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+统计分析结果通常需要报告统计量和p值。对于2组之间的对比，采用Wilcoxon Rank Sum Test，其统计量为\"W值\"；用对于多于2个组的组间对比，用Kruskal-Wallis Rank Sum Test，其统计量为\"H值\"。那么，例如对于A组和B组之间的对比，在文本中的报告格式为：\"A组和B组有显著差异（W = xxx, p = xxx）\"。下面给出本研究涉及的组间对比结果；至于以什么形式报告，建议见会议记录。
+
+```{r}
+get_wilcox("ven", "gender")
+get_kruskal("ven", "age")
+get_kruskal("ven", "education")
+# 拥有什么类型的土地。
+get_kruskal("ven", "q1")
+# 是否遇见过鹿。
+get_wilcox("ven", "q2")
+```
+
+对鹿的印象和食用鹿肉态度得分之间的关系如下表所示。**之前错误采用了Kruskal分析，实际上应该采用Wilcoxon分析。**最后的结果是，所有形容词的结果都显著。
+
+```{r}
+lapply(
+  paste0("q7_", head(letters, 8)), 
+  function(x) {
+    print(x)
+    get_wilcox("ven", x) %>% print()
+  }
+) %>% 
+  unlist() %>% 
+  matrix(byrow = TRUE, ncol = 3) %>% 
+  data.frame() %>% 
+  rename_with(~ c("sample_size", "W", "p")) %>% 
+  mutate(
+    p_res = round(p, digits = 3), 
+    p_mark = case_when(
+      p < 0.001 ~ "***", 
+      p < 0.005 ~ "**", 
+      p < 0.05 ~ "*", 
+      p >= 0.05 ~ "***"
+    )
+  )
+```
