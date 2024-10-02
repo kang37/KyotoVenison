@@ -477,7 +477,14 @@ lss_score <-
   mutate(fit = predict(lss, newdata = quan_dtm)) %>% 
   mutate(ven = factor(ven, levels = c(-2:2)))
 
+# Polarity score of terms 
+png(
+  paste0("data_proc/term_polarity_", format(Sys.Date(), "%Y%m%d"), ".png"), 
+  width = 1500, height = 1200, res = 300
+)
 textplot_terms(lss, highlighted = names(topfeatures(quan_dtm, n = 15)))
+dev.off()
+
 lss_score %>% 
   filter(!is.na(ven)) %>% 
   ggplot(aes(ven, fit)) + 
