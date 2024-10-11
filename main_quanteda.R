@@ -376,7 +376,7 @@ write.xlsx(
   topic_text <- quan_id_topic %>% 
     group_by(topic) %>% 
     arrange(topic, -gamma) %>% 
-    # slice_head(n = 10) %>% 
+    slice_head(n = 10) %>% 
     ungroup() %>% 
     # 漏洞：需要提前更改id的类型。
     left_join(mutate(survey, id = as.character(id)), by = "id") %>% 
