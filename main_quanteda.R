@@ -3,7 +3,7 @@
 
 # Preparation ----
 pacman::p_load(
-  openxlsx, dplyr, stopwords, topicmodels, ggplot2, ggsci, DescTools, 
+  openxlsx, dplyr, stopwords, topicmodels, dunn.test, ggplot2, ggsci, DescTools, 
   tidytext, quanteda, quanteda.textstats, LSX, showtext
 )
 showtext_auto()
@@ -64,7 +64,19 @@ survey <-
       rename_with(~ paste0("q7_", .))
   )
 
-# Statistic ----
+# Statistic analysis ----
+# Function to identify if data is normally distributed. 
+id_normal_distribution <- function(grp_x) {
+  by(
+    as.numeric(survey$ven), survey[[grp_x]], 
+    function(x) {
+      shapiro_res <- shapiro.test(x)
+      tibble(p = shapiro_res$p.value)
+    }
+  ) %>% 
+    unlist()
+}
+
 # Function to do Kruskal test for subset of survey data. 
 get_kruskal <- function(x_name, g_name) {
   survey_sub <- survey %>% 
@@ -79,6 +91,7 @@ get_kruskal <- function(x_name, g_name) {
   )
 }
 
+# Function to do Wilcoxon test for subset of survey data. 
 get_wilcox <- function(x_name, g_name) {
   survey_sub <- survey %>% 
     filter(!is.na({x_name}), !is.na({g_name}))
@@ -93,15 +106,16 @@ get_wilcox <- function(x_name, g_name) {
 }
 
 ## Venison score ~ attributes ----
-# 吃鹿肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比。
-by(as.numeric(survey$ven), survey$gender, shapiro.test)
+# 吃鹿肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比
+id_normal_distribution("gender")
 # 男女组均不符合正态分布，因此用非参数方法进行组间对比。
 get_wilcox("ven", "gender")
 # 结论：不同性别之间吃鹿肉态度有差异。
 
 # 吃鹿肉态度～年龄组：大部分年龄组不符合正态分布，因此用非参数方法。
-by(as.numeric(survey$ven), survey$age, shapiro.test)
+id_normal_distribution("age")
 get_kruskal("ven", "age")
+dunn.test(as.numeric(survey$ven), survey$age)
 
 # 吃鹿肉态度～教育水平。
 lapply(
