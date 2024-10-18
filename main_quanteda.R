@@ -146,7 +146,22 @@ lapply(
     print(x)
     get_wilcox("ven", x) %>% print()
   }
-)
+) %>% 
+  unlist() %>% 
+  matrix(byrow = TRUE, ncol = 3) %>% 
+  data.frame() %>% 
+  rename_with(~ c("sample_size", "W", "p")) %>% 
+  mutate(
+    p_res = round(p, digits = 3), 
+    p_mark = case_when(
+      p < 0.001 ~ "***", 
+      p < 0.01 ~ "**", 
+      p < 0.05 ~ "*", 
+      p >= 0.05 ~ ""
+    )
+  ) %>% 
+  # Add question ID. 
+  mutate(adj_word = paste0("q7_", head(letters, 8)), .before = 1)
 
 # 如果有显著差异，则进一步分析。
 table(survey$q7_b)
