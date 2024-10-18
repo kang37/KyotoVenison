@@ -4,7 +4,7 @@
 # Preparation ----
 pacman::p_load(
   openxlsx, dplyr, stopwords, topicmodels, dunn.test, ggplot2, ggsci, DescTools, 
-  tidytext, quanteda, quanteda.textstats, LSX, showtext
+  tidyr, tidytext, quanteda, quanteda.textstats, LSX, showtext
 )
 showtext_auto()
 
@@ -571,3 +571,82 @@ lss_score %>%
   select(ven, ven_reason, fit) %>% 
   head(10) %>% 
   View()
+
+# Result export ----
+survey %>% 
+  # Bug: Change variable earlier? 
+  tibble() %>% 
+  mutate(
+    gender = case_when(gender == 0 ~ "male", gender == 1 ~ "female"), 
+    age = case_when(
+      age == "1" ~ "10-19", age == "2" ~ "20-29", age == "3" ~ "30-39", 
+      age == "4" ~ "40-49", age == "5" ~ "50-59", age == "6" ~ "60-69", 
+      age == "7" ~ "70-79", age == "8" ~ ">80"
+    ), 
+    education = case_when(
+      education == 1 ~ "high school or below", education == 2 ~ "bachelor", 
+      education == 3 ~ "master", education == 4 ~ "doctor"
+    ), 
+    ven = as.numeric(ven), 
+    q1 = case_when(
+      q1 == 1 ~ "farmland", q1 == 2 ~ "forest", 
+      q1 == 3 ~ "farmland_forest", q1 == 4 ~ "none"
+    ), 
+    across(paste0("q7_", head(letters, 8)), as.character)
+  ) %>% 
+  select(gender, age, education, ven, q1, paste0("q7_", head(letters, 8))) %>% 
+  pivot_longer(
+    cols = c(gender, age, education, q1, paste0("q7_", head(letters, 8))), 
+    names_to = "attr", values_to = "attr_val"
+  ) %>% 
+  # Change names of Q7-questions. 
+  mutate(attr = case_when(
+    attr == "q7_a" ~ "virus_carry", 
+    attr == "q7_b" ~ "holy", 
+    attr == "q7_c" ~ "destructive", 
+    attr == "q7_d" ~ "national_symbol", 
+    attr == "q7_e" ~ "cruel", 
+    attr == "q7_f" ~ "cute", 
+    attr == "q7_g" ~ "rude", 
+    attr == "q7_h" ~ "docile", 
+    attr == "q1" ~ "land", 
+    TRUE ~ attr
+  )) %>% 
+  # Turn attributes into factors. 
+  mutate(
+    attr = factor(attr, levels = c(
+      "gender", "age", "education", "land", 
+      "virus_carry", "holy", "destructive", "national_symbol", 
+      "cruel", "cute", "rude", "docile"
+    )), 
+    attr_val = factor(attr_val, levels = c(
+      "female", "male", 
+      "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">80", 
+      "high school or below", "bachelor", "master", "doctor", 
+      "farmland", "forest", "farmland_forest", "none", 
+      "TRUE", "FALSE"
+    ))
+  ) %>%
+  # Remove NAs. 
+  filter(!is.na(ven), !is.na(attr_val)) %>% 
+  # Summarize data. 
+  group_by(attr, attr_val) %>% 
+  summarise(
+    sample_size = n(), mean = mean(ven), mid = median(ven), .groups = "drop"
+  ) %>% 
+  # Total sample size. 
+  group_by(attr) %>% 
+  mutate(tot_sample_size = sum(sample_size)) %>% 
+  ungroup() %>% 
+  # Sort. 
+  arrange(attr, attr_val) %>% 
+  # Only keep first row values of attr and attr_val. 
+  group_by(attr) %>% 
+  mutate(
+    grp_row_id = row_number(), 
+    attr = case_when(grp_row_id == 1 ~ attr, TRUE ~ ""), 
+    tot_sample_size = case_when(grp_row_id == 1 ~ tot_sample_size, TRUE ~ NA)
+  ) %>% 
+  ungroup() %>% 
+  select(attr, tot_sample_size, attr_val, sample_size, mean, mid) %>% 
+  write.xlsx(paste0("data_proc/general_description_", Sys.Date(), ".xlsx"))
