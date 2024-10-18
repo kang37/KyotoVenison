@@ -154,10 +154,7 @@ lapply(
   mutate(
     p_res = round(p, digits = 3), 
     p_mark = case_when(
-      p < 0.001 ~ "***", 
-      p < 0.01 ~ "**", 
-      p < 0.05 ~ "*", 
-      p >= 0.05 ~ ""
+      p < 0.001 ~ "***", p < 0.01 ~ "**", p < 0.05 ~ "*", p >= 0.05 ~ ""
     )
   ) %>% 
   # Add question ID. 
