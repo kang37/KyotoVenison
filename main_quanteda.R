@@ -613,6 +613,9 @@ lss_score %>%
     lss_sd = sd(fit, na.rm = T), 
     .groups = "drop"
   )
+ggplot(lss_score %>% filter(!is.na(ven))) + 
+  geom_boxplot(aes(ven, fit)) + 
+  theme_bw() 
 
 # 挑出吃肉态度较低（ven = -1）但是LSS得分高的回答；以及吃肉态度较高，但是LSS得分较低低回答。
 (
