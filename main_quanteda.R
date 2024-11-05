@@ -578,6 +578,20 @@ png(
 textplot_terms(lss, highlighted = names(topfeatures(quan_dtm, n = 15)))
 dev.off()
 
+# 导出词语极性结果。
+full_join(
+  data.frame(lss$beta) %>% 
+    rename_with(~ c("beta")) %>% 
+    mutate(term = rownames(.), .before = 1), 
+  data.frame(lss$frequency) %>% 
+    rename_with(~ c("frequency")) %>% 
+    mutate(term = rownames(.), .before = 1), 
+  by = "term"
+) %>% 
+  tibble() %>% 
+  mutate(freq_log = log(frequency)) %>% 
+  write.xlsx(paste0("data_proc/term_polarity_", Sys.Date(), ".xlsx"))
+
 lss_score %>% 
   filter(!is.na(ven)) %>% 
   ggplot(aes(ven, fit)) + 
