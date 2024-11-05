@@ -655,6 +655,7 @@ survey %>%
       education == 1 ~ "high school or below", education == 2 ~ "bachelor", 
       education == 3 ~ "master", education == 4 ~ "doctor"
     ), 
+    encounter_deer = case_when(q2 == 1 ~ "yes", q2 != 1 ~ "no"), 
     ven = as.numeric(ven), 
     q1 = case_when(
       q1 == 1 ~ "farmland", q1 == 2 ~ "forest", 
@@ -662,9 +663,15 @@ survey %>%
     ), 
     across(paste0("q7_", head(letters, 8)), as.character)
   ) %>% 
-  select(gender, age, education, ven, q1, paste0("q7_", head(letters, 8))) %>% 
+  select(
+    gender, age, education, ven, q1, encounter_deer, 
+    paste0("q7_", head(letters, 8))
+  ) %>% 
   pivot_longer(
-    cols = c(gender, age, education, q1, paste0("q7_", head(letters, 8))), 
+    cols = c(
+      gender, age, education, q1, encounter_deer, 
+      paste0("q7_", head(letters, 8))
+    ), 
     names_to = "attr", values_to = "attr_val"
   ) %>% 
   # Change names of Q7-questions. 
@@ -683,7 +690,7 @@ survey %>%
   # Turn attributes into factors. 
   mutate(
     attr = factor(attr, levels = c(
-      "gender", "age", "education", "land", 
+      "gender", "age", "education", "land", "encounter_deer", 
       "virus_carry", "holy", "destructive", "national_symbol", 
       "cruel", "cute", "rude", "docile"
     )), 
@@ -692,6 +699,7 @@ survey %>%
       "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">80", 
       "high school or below", "bachelor", "master", "doctor", 
       "farmland", "forest", "farmland_forest", "none", 
+      "yes", "no", 
       "TRUE", "FALSE"
     ))
   ) %>%
@@ -700,7 +708,8 @@ survey %>%
   # Summarize data. 
   group_by(attr, attr_val) %>% 
   summarise(
-    sample_size = n(), mean = mean(ven), mid = median(ven), .groups = "drop"
+    sample_size = n(), mean = mean(ven), sd = sd(ven), mid = median(ven), 
+    .groups = "drop"
   ) %>% 
   # Total sample size. 
   group_by(attr) %>% 
@@ -716,5 +725,5 @@ survey %>%
     tot_sample_size = case_when(grp_row_id == 1 ~ tot_sample_size, TRUE ~ NA)
   ) %>% 
   ungroup() %>% 
-  select(attr, tot_sample_size, attr_val, sample_size, mean, mid) %>% 
+  select(attr, tot_sample_size, attr_val, sample_size, mean, sd, mid) %>% 
   write.xlsx(paste0("data_proc/general_description_", Sys.Date(), ".xlsx"))
