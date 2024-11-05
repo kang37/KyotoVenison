@@ -439,8 +439,11 @@ survey %>%
 dev.off()
 
 # 食用鹿肉打分和主题的关系。
+# 分颜色柱状图。
 png(
-  paste0("data_proc/column_ven_topic_", format(Sys.Date(), "%Y%m%d"), ".png"), 
+  paste0(
+    "data_proc/column_ven_topic_num_black", format(Sys.Date(), "%Y%m%d"), ".png"
+  ), 
   width = 1200, height = 800, res = 300
 )
 quan_id_topic %>% 
@@ -449,8 +452,23 @@ quan_id_topic %>%
   summarise(gamma = sum(gamma), .groups = "drop") %>% 
   filter(!is.na(ven)) %>% 
   mutate(ven = factor(ven, levels = c("-2", "-1", "0", "1", "2"))) %>% 
+  # 计算每个得分内各个话题的占比。
+  group_by(ven) %>% 
+  arrange(ven, -topic) %>% 
+  mutate(
+    gamma_prop = gamma / sum(gamma), 
+    # 作图时标签的高度。
+    label_y_max = cumsum(gamma_prop), 
+    label_y_min = lag(label_y_max, default = 0), 
+    label_y = (label_y_max + label_y_min) / 2
+  ) %>% 
+  ungroup() %>% 
   ggplot() + 
-  geom_col(aes(ven, gamma, fill = as.character(topic)), position = "fill") + 
+  geom_col(aes(ven, gamma_prop, fill = as.character(topic))) + 
+  geom_text(
+    aes(ven, label_y, label = sprintf("%.0f%%", gamma_prop * 100)), 
+    col = "black", size = 3
+  ) + 
   theme_bw() + 
   scale_fill_manual(
     breaks = 1:6, 
@@ -461,6 +479,39 @@ quan_id_topic %>%
     fill = "Topics\nabout\nvenison"
   ) +
   theme(axis.text.x = element_text(angle = 90))
+dev.off()
+
+# 分成子图。
+png(
+  paste0(
+    "data_proc/column_ven_topic_facet", format(Sys.Date(), "%Y%m%d"), ".png"
+  ), 
+  width = 1400, height = 1000, res = 300
+)
+quan_id_topic %>% 
+  left_join(select(survey, id, ven), by = "id") %>% 
+  group_by(ven, topic) %>% 
+  summarise(gamma = sum(gamma), .groups = "drop") %>% 
+  filter(!is.na(ven)) %>% 
+  mutate(ven = factor(ven, levels = c("-2", "-1", "0", "1", "2"))) %>% 
+  # 计算每个得分内各个话题的占比。
+  group_by(ven) %>% 
+  arrange(ven, -topic) %>% 
+  mutate(gamma_prop = gamma / sum(gamma)) %>% 
+  ungroup() %>% 
+  ggplot() + 
+  geom_col(aes(ven, gamma_prop, fill = as.character(topic))) + 
+  theme_bw() + 
+  scale_fill_manual(
+    breaks = 1:6, 
+    values = c("#d6cbda", "#c9e0e5", "#bed2c6", "#ffd19d", "#feb29b", "#ed8687")
+  ) + 
+  labs(
+    x = "Public attitudes toward venison", y = "Percentage", 
+    fill = "Topics\nabout\nvenison"
+  ) +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  facet_wrap(.~ topic)
 dev.off()
 
 # 对狩猎的态度和主题的关系。
