@@ -3,8 +3,8 @@
 
 # Preparation ----
 pacman::p_load(
-  openxlsx, dplyr, stopwords, topicmodels, dunn.test, ggplot2, ggsci, DescTools, 
-  tidyr, tidytext, quanteda, quanteda.textstats, LSX, showtext
+  openxlsx, dplyr, stopwords, topicmodels, dunn.test, ggplot2, ggsci, ggrepel, 
+  DescTools, tidyr, tidytext, quanteda, quanteda.textstats, LSX, showtext
 )
 showtext_auto()
 
@@ -570,12 +570,54 @@ lss_score <-
   mutate(fit = predict(lss, newdata = quan_dtm)) %>% 
   mutate(ven = factor(ven, levels = c(-2:2)))
 
-# Polarity score of terms 
+# Polarity score of terms.
+# 将LSS模型结果中的日语词汇翻译成英语。
+# 对LSS模型结果的整理代码如下：
+# full_join(
+#   data.frame(lss$beta) %>% 
+#     rename_with(~ "beta") %>% 
+#     mutate(term = rownames(.), .before = 1), 
+#   data.frame(lss$frequency) %>% 
+#     rename_with(~ "freq") %>% 
+#     mutate(term = rownames(.), .before = 1)
+# ) %>% 
+#   tibble() %>% 
+#   mutate(
+#     top_beta = beta %in% sort(beta, decreasing = TRUE)[1:3], 
+#     tail_beta = beta %in% sort(beta, decreasing = FALSE)[1:2], 
+#     top_freq = freq %in% sort(freq, decreasing = TRUE)[1:15], 
+#     stand_out_term = top_beta | tail_beta | top_freq
+#   )
+# 翻译后导出新的数据文件并作图。
 png(
   paste0("data_proc/term_polarity_", format(Sys.Date(), "%Y%m%d"), ".png"), 
   width = 1500, height = 1200, res = 300
 )
-textplot_terms(lss, highlighted = names(topfeatures(quan_dtm, n = 15)))
+lss_beta_freq <- read.xlsx("data_raw/lss_term_beta_freq_trans.xlsx") %>% 
+  tibble() %>% 
+  select(term, term_en, beta, freq, top_freq) %>% 
+  # 将大写字母都替换成小写，并去除括号。
+  mutate(term_en = tolower(term_en), term_en = gsub("[()]", "", term_en))
+ggplot() + 
+  geom_point(
+    data = lss_beta_freq %>% filter(top_freq == FALSE), 
+    aes(beta, log(freq)), col = "grey"
+  ) + 
+  geom_point(
+    data = lss_beta_freq %>% filter(top_freq), 
+    aes(beta, log(freq)), col = "black", alpha = 0.5
+  ) + 
+  geom_text(
+    data = lss_beta_freq %>% filter(top_freq == FALSE), 
+    aes(beta, log(freq), label = term_en), col = "grey"
+  ) + 
+  geom_text_repel(
+    data = lss_beta_freq %>% filter(top_freq), 
+    aes(beta, log(freq), label = term_en), box.padding = 0.3, col = "black"
+  ) + 
+  theme_bw() + 
+  labs(x = "Polarity", y = "Frequency (log scale)")
+# textplot_terms(lss, highlighted = names(topfeatures(quan_dtm, n = 15)))
 dev.off()
 
 # 导出词语极性结果。
