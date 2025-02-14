@@ -599,23 +599,20 @@ lss_beta_freq <- read.xlsx("data_raw/lss_term_beta_freq_trans.xlsx") %>%
   # 将大写字母都替换成小写，并去除括号。
   mutate(term_en = tolower(term_en), term_en = gsub("[()]", "", term_en))
 ggplot() + 
-  geom_point(
+  geom_text(
     data = lss_beta_freq %>% filter(top_freq == FALSE), 
-    aes(beta, log(freq)), col = "grey"
+    aes(beta, log(freq), label = term_en), col = "grey"
   ) + 
   geom_point(
     data = lss_beta_freq %>% filter(top_freq), 
     aes(beta, log(freq)), col = "black", alpha = 0.5
-  ) + 
-  geom_text(
-    data = lss_beta_freq %>% filter(top_freq == FALSE), 
-    aes(beta, log(freq), label = term_en), col = "grey"
   ) + 
   geom_text_repel(
     data = lss_beta_freq %>% filter(top_freq), 
     aes(beta, log(freq), label = term_en), box.padding = 0.3, col = "black"
   ) + 
   theme_bw() + 
+  theme(panel.grid = element_blank()) + 
   labs(x = "Polarity", y = "Frequency (log scale)")
 # textplot_terms(lss, highlighted = names(topfeatures(quan_dtm, n = 15)))
 dev.off()
