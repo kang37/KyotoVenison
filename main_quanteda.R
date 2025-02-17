@@ -589,23 +589,27 @@ lss_score <-
 #     stand_out_term = top_beta | tail_beta | top_freq
 #   )
 # 翻译后导出新的数据文件并作图。
-png(
-  paste0("data_proc/term_polarity_", format(Sys.Date(), "%Y%m%d"), ".png"), 
-  width = 1500, height = 1200, res = 300
-)
 lss_beta_freq <- read.xlsx("data_raw/lss_term_beta_freq_trans.xlsx") %>% 
   tibble() %>% 
   select(term, term_en, beta, freq, top_freq) %>% 
   # 将大写字母都替换成小写，并去除括号。
   mutate(term_en = tolower(term_en), term_en = gsub("[()]", "", term_en))
+png(
+  paste0("data_proc/term_polarity_", format(Sys.Date(), "%Y%m%d"), ".png"), 
+  width = 1500, height = 1200, res = 300
+)
 ggplot() + 
-  geom_text(
+  # geom_text(
+  #   data = lss_beta_freq %>% filter(top_freq == FALSE), 
+  #   aes(beta, log(freq), label = term_en), col = "grey"
+  # ) + 
+  geom_point(
     data = lss_beta_freq %>% filter(top_freq == FALSE), 
-    aes(beta, log(freq), label = term_en), col = "grey"
+    aes(beta, log(freq)), col = "black", alpha = 0.3
   ) + 
   geom_point(
     data = lss_beta_freq %>% filter(top_freq), 
-    aes(beta, log(freq)), col = "black", alpha = 0.5
+    aes(beta, log(freq)), col = "black", alpha = 0.3
   ) + 
   geom_text_repel(
     data = lss_beta_freq %>% filter(top_freq), 
