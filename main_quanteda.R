@@ -13,13 +13,12 @@ survey <-
   read.xlsx("data_raw/kyoto_venison_raw.xlsx", sheet = "Num") %>% 
   tibble() %>% 
   rename_with(~ tolower(.x)) %>% 
-  rename(id = "no.") %>% 
+  rename("id" = "no.", "land" = "q1", "encounter_deer" = "q2") %>% 
   mutate(
     id = as.character(id), 
     ven = as.character(q10), 
     hunting = as.integer(q11b)
   ) %>% 
-  # select(id, gender, age, education, ven, hunting) %>% 
   # 加入Q10日语回答信息。
   left_join(
     read.xlsx("data_raw/kyoto_venison_raw.xlsx", sheet = "Text") %>%
@@ -28,9 +27,13 @@ survey <-
     by = "id"
   ) %>% 
   # 漏洞：该数据筛选操作是否合理？
-  mutate(gender = case_when(
-    gender == 2 ~ NA, gender == 0 | gender == 1 ~ gender, is.na(gender) ~ NA
-  )) %>% 
+  mutate(
+    gender = case_when(
+      gender == 2 ~ NA, gender == 0 | gender == 1 ~ gender, is.na(gender) ~ NA
+    ), 
+    # Education有空值。
+    education = case_when(education == " " ~ NA, TRUE ~ education)
+  ) %>% 
   filter(!is.na(ven_reason)) %>% 
   # 漏洞：是否需要执行更加严格的数据筛选操作？
   # filter(
@@ -62,7 +65,36 @@ survey <-
     sapply(head(letters, 8), function(letter) grepl(letter, .$q7)) %>% 
       as.data.frame() %>% 
       rename_with(~ paste0("q7_", .))
-  )
+  ) %>% 
+  tibble() %>% 
+  # 更改变量名称。
+  mutate(
+    gender = case_when(gender == 0 ~ "male", gender == 1 ~ "female"), 
+    age = case_when(
+      age == "1" ~ "10-19", age == "2" ~ "20-29", age == "3" ~ "30-39", 
+      age == "4" ~ "40-49", age == "5" ~ "50-59", age == "6" ~ "60-69", 
+      age == "7" ~ "70-79", age == "8" ~ ">80"
+    ), 
+    education = case_when(
+      education == 1 ~ "high school or below", education == 2 ~ "bachelor",
+      education == 3 ~ "master", education == 4 ~ "doctor"
+    ),
+    encounter_deer = case_when(
+      encounter_deer == 1 ~ "yes", encounter_deer != 1 ~ "no"
+    ),
+    ven = as.numeric(ven),
+    land = case_when(
+      land == 1 ~ "farmland", land == 2 ~ "forest",
+      land == 3 ~ "farmland_forest", land == 4 ~ "none"
+    )
+  ) %>% 
+  # 是否可以用于第一部分分析：各属性对态度的影响。
+  mutate(ana_1_sub = case_when(
+    if_all(
+      c(gender, age, education, land, encounter_deer, ven), ~ !is.na(.)
+    ) ~ 1,
+    TRUE ~ 0
+  ))
 
 # Statistic analysis ----
 # Function to identify if data is normally distributed. 
@@ -78,46 +110,35 @@ id_normal_distribution <- function(grp_x) {
 }
 
 # Function to do Kruskal test for subset of survey data. 
-get_kruskal <- function(x_name, g_name) {
-  survey_sub <- survey %>% 
-    filter(!is.na({x_name}), !is.na({g_name}))
+grp_comp <- function(x_name, g_name) {
+  survey_sub <- survey %>% filter(ana_1_sub == 1)
   smp_size <- nrow(survey_sub)
-  stat_res <- kruskal.test(
-    as.numeric(survey_sub[[x_name]]) ~ as.character(survey_sub[[g_name]])
-  )
+  if(length(unique(survey_sub[[g_name]])) <= 2) {
+    stat_label <- "w"
+    stat_res <- wilcox.test(
+      as.numeric(survey_sub[[x_name]]) ~ as.character(survey_sub[[g_name]])
+    )
+  } else {
+    stat_label <- "h"
+    stat_res <- kruskal.test(
+      as.numeric(survey_sub[[x_name]]) ~ as.character(survey_sub[[g_name]])
+    )
+  }
+  # 统计量。
+  stat_val <- stat_res$statistic %>% 
+    round(digits = 2)
+  # 返回结果。
   return(
-    c(smp_size, stat_res$statistic, stat_res$p.value) %>% 
-      setNames(c("smp_size", "h", "p"))
-  )
-}
-
-# Function to do Wilcoxon test for subset of survey data. 
-get_wilcox <- function(x_name, g_name) {
-  survey_sub <- survey %>% 
-    filter(!is.na({x_name}), !is.na({g_name}))
-  smp_size <- nrow(survey_sub)
-  stat_res <- wilcox.test(
-    as.numeric(survey_sub[[x_name]]) ~ as.character(survey_sub[[g_name]])
-  )
-  return(
-    c(smp_size, stat_res$statistic, stat_res$p.value) %>% 
-      setNames(c("smp_size", "w", "p"))
+    c(g_name, smp_size, stat_label, stat_val, stat_res$p.value) %>% 
+      setNames(c("g_name", "smp_size", "stat_label", "stat_val", "p"))
   )
 }
 
 ## Venison score ~ attributes ----
-# 吃鹿肉态度～性别：朱珠已进行了卡方分析，此处基于每个受访者数据进行组间对比
+# 基本属性、有何土地（q1）、是否遇见鹿（q2）对吃肉态度的影响。
+# 正态检验。
 id_normal_distribution("gender")
-# 男女组均不符合正态分布，因此用非参数方法进行组间对比。
-get_wilcox("ven", "gender")
-# 结论：不同性别之间吃鹿肉态度有差异。
-
-# 吃鹿肉态度～年龄组：大部分年龄组不符合正态分布，因此用非参数方法。
 id_normal_distribution("age")
-get_kruskal("ven", "age")
-dunn.test(as.numeric(survey$ven), survey$age)
-
-# 吃鹿肉态度～教育水平。
 lapply(
   as.character(1:4), 
   function(x) {
@@ -126,17 +147,24 @@ lapply(
       shapiro.test()
   }
 )
-get_kruskal("ven", "education")
+by(as.numeric(survey$ven), survey$land, shapiro.test)
+by(as.numeric(survey$ven), survey$encounter_deer, shapiro.test)
 
-## Venison score ~ have land ----
-# 吃肉态度和是否有农地林地的关系。
-by(as.numeric(survey$ven), survey$q1, shapiro.test)
-get_kruskal("ven", "q1")
-
-## Venison score ~ encounter deer ----
-# 吃肉态度和是否碰到鹿的关系。
-by(as.numeric(survey$ven), survey$q2, shapiro.test)
-get_wilcox("ven", "q2")
+# 组间对比。
+(
+  ana_1_res <- 
+    lapply(
+      c("gender", "age", "education", "land", "encounter_deer"), 
+      grp_comp, x_name = "ven"
+    ) %>% 
+    bind_rows() %>% 
+    mutate(
+      p = round(as.numeric(p), digits = 4), 
+      p_label = case_when(
+        p < 0.001 ~ "***", p < 0.01 ~ "**", p < 0.1 ~ "*", p >= 0.05 ~ ""
+      )
+    )
+)
 
 ## Venison score ~ deer impression ----
 # 吃肉态度和对鹿的印象的关系。
@@ -684,75 +712,31 @@ lss_score %>%
   View()
 
 # Result export ----
+# 输出分析1，即各属性及分组吃肉态度相关数据。
 survey %>% 
-  # Bug: Change variable earlier? 
-  tibble() %>% 
-  mutate(
-    gender = case_when(gender == 0 ~ "male", gender == 1 ~ "female"), 
-    age = case_when(
-      age == "1" ~ "10-19", age == "2" ~ "20-29", age == "3" ~ "30-39", 
-      age == "4" ~ "40-49", age == "5" ~ "50-59", age == "6" ~ "60-69", 
-      age == "7" ~ "70-79", age == "8" ~ ">80"
-    ), 
-    education = case_when(
-      education == 1 ~ "high school or below", education == 2 ~ "bachelor", 
-      education == 3 ~ "master", education == 4 ~ "doctor"
-    ), 
-    encounter_deer = case_when(q2 == 1 ~ "yes", q2 != 1 ~ "no"), 
-    ven = as.numeric(ven), 
-    q1 = case_when(
-      q1 == 1 ~ "farmland", q1 == 2 ~ "forest", 
-      q1 == 3 ~ "farmland_forest", q1 == 4 ~ "none"
-    ), 
-    across(paste0("q7_", head(letters, 8)), as.character)
-  ) %>% 
-  select(
-    gender, age, education, ven, q1, encounter_deer, 
-    paste0("q7_", head(letters, 8))
-  ) %>% 
+  filter(ana_1_sub == 1) %>% 
+  select(gender, age, education, ven, land, encounter_deer) %>% 
   pivot_longer(
-    cols = c(
-      gender, age, education, q1, encounter_deer, 
-      paste0("q7_", head(letters, 8))
-    ), 
+    cols = c(gender, age, education, land, encounter_deer), 
     names_to = "attr", values_to = "attr_val"
   ) %>% 
-  # Change names of Q7-questions. 
-  mutate(attr = case_when(
-    attr == "q7_a" ~ "virus_carry", 
-    attr == "q7_b" ~ "holy", 
-    attr == "q7_c" ~ "destructive", 
-    attr == "q7_d" ~ "national_symbol", 
-    attr == "q7_e" ~ "cruel", 
-    attr == "q7_f" ~ "cute", 
-    attr == "q7_g" ~ "rude", 
-    attr == "q7_h" ~ "docile", 
-    attr == "q1" ~ "land", 
-    TRUE ~ attr
-  )) %>% 
   # Turn attributes into factors. 
   mutate(
     attr = factor(attr, levels = c(
-      "gender", "age", "education", "land", "encounter_deer", 
-      "virus_carry", "holy", "destructive", "national_symbol", 
-      "cruel", "cute", "rude", "docile"
+      "gender", "age", "education", "land", "encounter_deer"
     )), 
     attr_val = factor(attr_val, levels = c(
       "female", "male", 
       "10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", ">80", 
       "high school or below", "bachelor", "master", "doctor", 
       "farmland", "forest", "farmland_forest", "none", 
-      "yes", "no", 
-      "TRUE", "FALSE"
+      "yes", "no"
     ))
   ) %>%
-  # Remove NAs. 
-  filter(!is.na(ven), !is.na(attr_val)) %>% 
   # Summarize data. 
   group_by(attr, attr_val) %>% 
   summarise(
-    sample_size = n(), mean = mean(ven), sd = sd(ven), mid = median(ven), 
-    .groups = "drop"
+    sample_size = n(), avg = mean(ven), sd_val = sd(ven), .groups = "drop"
   ) %>% 
   # Total sample size. 
   group_by(attr) %>% 
@@ -768,5 +752,12 @@ survey %>%
     tot_sample_size = case_when(grp_row_id == 1 ~ tot_sample_size, TRUE ~ NA)
   ) %>% 
   ungroup() %>% 
-  select(attr, tot_sample_size, attr_val, sample_size, mean, sd, mid) %>% 
-  write.xlsx(paste0("data_proc/general_description_", Sys.Date(), ".xlsx"))
+  select(attr, tot_sample_size, attr_val, sample_size, avg, sd_val) %>% 
+  mutate(avg = round(avg, digits = 2), sd_val = round(sd_val, digits = 2)) %>% 
+  write.xlsx(paste0("data_proc/ana_1_general_descript_", Sys.Date(), ".xlsx"))
+
+# 输出分析1结果。
+write.xlsx(
+  ana_1_res, 
+  paste0("data_proc/ana_1_grp_comparison_", Sys.Date(), ".xlsx")
+)
