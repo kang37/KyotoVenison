@@ -89,12 +89,20 @@ survey <-
     )
   ) %>% 
   # 是否可以用于第一部分分析：各属性对态度的影响。
-  mutate(ana_1_sub = case_when(
-    if_all(
-      c(gender, age, education, land, encounter_deer, ven), ~ !is.na(.)
-    ) ~ 1,
-    TRUE ~ 0
-  ))
+  mutate(
+    ana_1_sub = case_when(
+      if_all(
+        c(gender, age, education, land, encounter_deer, ven), ~ !is.na(.)
+      ) ~ 1,
+      TRUE ~ 0
+    ), 
+    ana_2_sub = case_when(
+      if_all(
+        c(all_of(paste0("q7_", head(letters, 8))), ven), ~ !is.na(.)
+      ) ~ 1,
+      TRUE ~ 0
+    )
+  )
 
 # Statistic analysis ----
 # Function to identify if data is normally distributed. 
@@ -764,3 +772,56 @@ write.xlsx(
   ana_1_res, 
   paste0("data_proc/ana_1_grp_comparison_", Sys.Date(), ".xlsx")
 )
+
+# 输出分析2（即印象对态度影响）部分的基本描述信息。
+survey %>% 
+  filter(ana_2_sub == 1) %>% 
+  mutate(across(paste0("q7_", head(letters, 8)), as.character)) %>% 
+  select(paste0("q7_", head(letters, 8)), ven) %>% 
+  pivot_longer(
+    cols = c(paste0("q7_", head(letters, 8))), 
+    names_to = "attr", values_to = "attr_val"
+  ) %>% 
+  # Change names of Q7-questions. 
+  mutate(attr = case_when(
+    attr == "q7_a" ~ "virus_carry", 
+    attr == "q7_b" ~ "holy", 
+    attr == "q7_c" ~ "destructive", 
+    attr == "q7_d" ~ "national_symbol", 
+    attr == "q7_e" ~ "cruel", 
+    attr == "q7_f" ~ "cute", 
+    attr == "q7_g" ~ "rude", 
+    attr == "q7_h" ~ "docile"
+  )) %>% 
+  mutate(
+    attr = factor(attr, levels = c(
+      "virus_carry", "holy", "destructive", "national_symbol", 
+      "cruel", "cute", "rude", "docile"
+    )), 
+    attr_val = factor(attr_val, levels = c(TRUE, FALSE))
+  ) %>% 
+  # Summarize data. 
+  group_by(attr, attr_val) %>% 
+  summarise(
+    sample_size = n(), avg = mean(ven), sd_val = sd(ven), .groups = "drop"
+  ) %>% 
+  # Total sample size. 
+  group_by(attr) %>% 
+  mutate(
+    tot_sample_size = sum(sample_size), 
+    prop = sample_size / tot_sample_size * 100
+  ) %>% 
+  ungroup() %>% 
+  # Sort. 
+  arrange(attr, attr_val) %>% 
+  # Only keep first row values of attr and attr_val. 
+  group_by(attr) %>% 
+  mutate(
+    grp_row_id = row_number(), 
+    attr = case_when(grp_row_id == 1 ~ attr, TRUE ~ ""), 
+    tot_sample_size = case_when(grp_row_id == 1 ~ tot_sample_size, TRUE ~ NA)
+  ) %>% 
+  ungroup() %>% 
+  select(attr, tot_sample_size, attr_val, sample_size, prop, avg, sd_val) %>% 
+  mutate(across(c(prop, avg, sd_val), ~ round(.x, digits = 2))) %>% 
+  write.xlsx(paste0("data_proc/ana_2_general_descript_", Sys.Date(), ".xlsx"))
