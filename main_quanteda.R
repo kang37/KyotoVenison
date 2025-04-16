@@ -740,7 +740,10 @@ survey %>%
   ) %>% 
   # Total sample size. 
   group_by(attr) %>% 
-  mutate(tot_sample_size = sum(sample_size)) %>% 
+  mutate(
+    tot_sample_size = sum(sample_size), 
+    prop = sample_size / tot_sample_size * 100
+  ) %>% 
   ungroup() %>% 
   # Sort. 
   arrange(attr, attr_val) %>% 
@@ -752,8 +755,8 @@ survey %>%
     tot_sample_size = case_when(grp_row_id == 1 ~ tot_sample_size, TRUE ~ NA)
   ) %>% 
   ungroup() %>% 
-  select(attr, tot_sample_size, attr_val, sample_size, avg, sd_val) %>% 
-  mutate(avg = round(avg, digits = 2), sd_val = round(sd_val, digits = 2)) %>% 
+  select(attr, tot_sample_size, attr_val, sample_size, prop, avg, sd_val) %>% 
+  mutate(across(c(prop, avg, sd_val), ~ round(.x, digits = 2))) %>% 
   write.xlsx(paste0("data_proc/ana_1_general_descript_", Sys.Date(), ".xlsx"))
 
 # 输出分析1结果。
