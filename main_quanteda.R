@@ -91,13 +91,13 @@ survey <-
   ) %>% 
   # 是否可以用于第一部分分析：各属性对态度的影响。
   mutate(
-    ana_1_sub = case_when(
+    ana_sub_1 = case_when(
       if_all(
         c(gender, age, education, land, encounter_deer, ven), ~ !is.na(.)
       ) ~ 1,
       TRUE ~ 0
     ), 
-    ana_2_sub = case_when(
+    ana_sub_2 = case_when(
       if_all(
         c(all_of(paste0("q7_", head(letters, 8))), ven), ~ !is.na(.)
       ) ~ 1,
@@ -119,8 +119,8 @@ id_normal_distribution <- function(grp_x) {
 }
 
 # Function to do Kruskal test for subset of survey data. 
-grp_comp <- function(x_name, g_name) {
-  survey_sub <- survey %>% filter(ana_1_sub == 1)
+grp_comp <- function(x_name, g_name, sub_dt) {
+  survey_sub <- survey %>% filter(get(sub_dt) == 1)
   smp_size <- nrow(survey_sub)
   if(length(unique(survey_sub[[g_name]])) <= 2) {
     stat_label <- "w"
@@ -164,7 +164,7 @@ by(as.numeric(survey$ven), survey$encounter_deer, shapiro.test)
   ana_1_res <- 
     lapply(
       c("gender", "age", "education", "land", "encounter_deer"), 
-      grp_comp, x_name = "ven"
+      grp_comp, x_name = "ven", sub_dt = "ana_sub_1"
     ) %>% 
     bind_rows() %>% 
     mutate(
@@ -179,17 +179,11 @@ by(as.numeric(survey$ven), survey$encounter_deer, shapiro.test)
 # 吃肉态度和对鹿的印象的关系。
 lapply(
   paste0("q7_", head(letters, 8)), 
-  function(x) {
-    print(x)
-    get_wilcox("ven", x) %>% print()
-  }
+  grp_comp, x_name = "ven", sub_dt = "ana_sub_2"
 ) %>% 
-  unlist() %>% 
-  matrix(byrow = TRUE, ncol = 3) %>% 
-  data.frame() %>% 
-  rename_with(~ c("sample_size", "W", "p")) %>% 
+  bind_rows() %>% 
   mutate(
-    p_res = round(p, digits = 3), 
+    p = round(as.numeric(p), digits = 4), 
     p_mark = case_when(
       p < 0.001 ~ "***", p < 0.01 ~ "**", p < 0.05 ~ "*", p >= 0.05 ~ ""
     )
@@ -229,9 +223,17 @@ by(as.numeric(survey$ven), survey$q7_f, function(x) median(x, na.rm = T))
 by(as.numeric(survey$ven), survey$q7_f, function(x) mean(x, na.rm = T))
 
 ## Hunting score ~ attributes ----
-# 狩猎态度～性别。
+# 狩猎态度～性别，年龄，教育水平。
+# 正态分布检验。
 by(as.numeric(survey$hunting), survey$gender, shapiro.test)
-get_kruskal("hunting", "gender")
+
+# 组间对比。
+lapply(
+  c("gender", "age", "education"), 
+  grp_comp, x_name = "hunting", sub_dt = "ana_sub_1"
+) %>% 
+  bind_rows()
+grp_comp("hunting", "gender", "ana_sub_1")
 # 卡方检验。
 gender_hunting_chisq <- table(survey$gender, survey$hunting)
 gender_hunting_chisq
@@ -239,7 +241,7 @@ chisq.test(gender_hunting_chisq)
 
 # 狩猎态度～年龄组。
 by(as.numeric(survey$hunting), survey$age, shapiro.test)
-get_kruskal("hunting", "age")
+grp_comp("hunting", "age", "ana_sub_1")
 
 # 狩猎态度～教育水平。
 lapply(
@@ -250,7 +252,7 @@ lapply(
       shapiro.test()
   }
 )
-get_kruskal("hunting", "education")
+grp_comp("hunting", "education", "ana_sub_1")
 
 ## Venison score ~ hunting score ----
 cor.test(as.numeric(survey$ven), as.numeric(survey$hunting))
@@ -723,7 +725,7 @@ lss_score %>%
 # Result export ----
 # 输出分析1，即各属性及分组吃肉态度相关数据。
 survey %>% 
-  filter(ana_1_sub == 1) %>% 
+  filter(ana_sub_1 == 1) %>% 
   select(gender, age, education, ven, land, encounter_deer) %>% 
   pivot_longer(
     cols = c(gender, age, education, land, encounter_deer), 
@@ -776,7 +778,7 @@ write.xlsx(
 
 # 输出分析2（即印象对态度影响）部分的基本描述信息。
 survey %>% 
-  filter(ana_2_sub == 1) %>% 
+  filter(ana_sub_2 == 1) %>% 
   mutate(across(paste0("q7_", head(letters, 8)), as.character)) %>% 
   select(paste0("q7_", head(letters, 8)), ven) %>% 
   pivot_longer(
